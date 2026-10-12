@@ -1,0 +1,2149 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Scheda Pesistica</title>
+<meta name="description" content="Importa la scheda PDF del coach, registra pesi, serie e note ed esporta il PDF settimanale.">
+<meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Scheda">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* Layout: colonna unica da telefono (max 560px), barra in alto fissa, schede impilate.
+   Colori di intensità presi dai dischi da gara: blu = % 1RM, verde = kg, giallo = RPE. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --surface-2: #f6f8fa;
+  --ink: #131820;
+  --muted: #5a6574;
+  --line: #d9dfe6;
+  --accent: #c9222b;
+  --accent-ink: #ffffff;
+  --pct: #1d5bbf;
+  --kg: #2a7f3f;
+  --rpe: #9a6a00;
+  --pct-bg: #e3ecfa;
+  --kg-bg: #e2f2e6;
+  --rpe-bg: #fbf0d4;
+  --warn: #a8500c;
+  --warn-bg: #fcefe1;
+  --ss: #6a3daf;
+  --ss-bg: #efe8fa;
+  --shadow: 0 1px 2px rgba(19, 24, 32, .06), 0 4px 14px rgba(19, 24, 32, .05);
+  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-body: "Public Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 14px;
+  --fab-track: #3a414c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --surface: #171b21; --surface-2: #1d2229; --ink: #edf0f3; --muted: #9ba5b2; --line: #2a3039;
+    --accent: #ff4b55; --accent-ink: #14080a;
+    --pct: #79a8ff; --kg: #63c97c; --rpe: #f2c04a;
+    --pct-bg: #182640; --kg-bg: #15291b; --rpe-bg: #2c2410;
+    --warn: #f39d52; --warn-bg: #2c1f12; --ss: #b892f5; --ss-bg: #251c36;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --fab-track: #c9cfd6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --surface: #171b21; --surface-2: #1d2229; --ink: #edf0f3; --muted: #9ba5b2; --line: #2a3039;
+  --accent: #ff4b55; --accent-ink: #14080a;
+  --pct: #79a8ff; --kg: #63c97c; --rpe: #f2c04a;
+  --pct-bg: #182640; --kg-bg: #15291b; --rpe-bg: #2c2410;
+  --warn: #f39d52; --warn-bg: #2c1f12; --ss: #b892f5; --ss-bg: #251c36;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --fab-track: #c9cfd6;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-inner {
+  max-width: 560px; margin: 0 auto; padding: 10px 16px;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; min-height: 52px;
+}
+.topbar h1 {
+  margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 20px;
+  letter-spacing: .02em; text-transform: uppercase; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58vw;
+}
+.topbar .left { justify-self: start; }
+.topbar .right { justify-self: end; }
+
+.link-btn {
+  background: none; border: 0; padding: 6px 2px; color: var(--accent); font-weight: 600;
+  display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;
+}
+.link-btn svg { width: 18px; height: 18px; }
+
+main { max-width: 560px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 40px; display: flex; flex-direction: column; gap: 20px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 999px; border: 1px solid transparent; padding: 11px 18px; font-weight: 600;
+  min-height: 44px; text-decoration: none;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-ghost { background: var(--surface); border-color: var(--line); }
+.btn-danger { background: none; border-color: var(--accent); color: var(--accent); }
+.btn-small { min-height: 34px; padding: 6px 14px; font-size: 14px; }
+.btn svg { width: 18px; height: 18px; }
+
+.section-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  margin: 0 0 8px 4px; display: flex; align-items: center; gap: 6px;
+}
+
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); }
+.list { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: none; border: 0; padding: 14px 16px; border-top: 1px solid var(--line);
+}
+.list > .row:first-child, .list > :first-child .row:first-child { border-top: 0; }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.row-title { font-weight: 600; }
+.row-sub { color: var(--muted); font-size: 13px; }
+.chev { color: var(--muted); flex: none; width: 16px; height: 16px; }
+
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.setsreps { font-family: var(--font-display); font-weight: 700; font-size: 19px; letter-spacing: .01em; font-variant-numeric: tabular-nums; margin-right: 2px; }
+.chip {
+  display: inline-flex; align-items: baseline; gap: 4px; border-radius: 999px; padding: 2px 9px;
+  font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.chip small { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+.chip-percent { background: var(--pct-bg); color: var(--pct); }
+.chip-load { background: var(--kg-bg); color: var(--kg); }
+.chip-rpe { background: var(--rpe-bg); color: var(--rpe); }
+.rest { color: var(--muted); font-size: 13px; display: inline-flex; align-items: center; gap: 3px; }
+.rest svg { width: 13px; height: 13px; }
+.warn-dot { color: var(--warn); flex: none; width: 18px; height: 18px; }
+
+.ss-tag { color: var(--ss); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px; }
+.ss-tag svg { width: 13px; height: 13px; }
+.ss-group { border-left: 3px solid var(--ss); }
+
+.issues { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; }
+.issues div { display: flex; gap: 8px; align-items: flex-start; }
+.issues svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+
+.banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+.banner-error { background: var(--warn-bg); color: var(--warn); }
+.store-note { color: var(--muted); font-size: 12px; text-align: center; }
+
+/* Home */
+.hero { display: flex; flex-direction: column; gap: 10px; padding: 8px 4px 0; }
+.hero h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 1; text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.hero p { margin: 0; color: var(--muted); max-width: 40ch; }
+.steps { display: grid; gap: 10px; padding: 16px; }
+.step { display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: start; }
+.step b { font-family: var(--font-display); font-size: 22px; line-height: 1.1; color: var(--accent); }
+.step span { color: var(--muted); font-size: 14px; }
+.step strong { display: block; color: var(--ink); font-size: 15px; }
+.program-title { font-family: var(--font-display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: .01em; line-height: 1.1; }
+.import-zone { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.busy { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 12px 4px; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Review */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); }
+.stat { padding: 14px 8px; text-align: center; border-left: 1px solid var(--line); }
+.stat:first-child { border-left: 0; }
+.stat b { display: block; font-family: var(--font-display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.field { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.field:first-child { border-top: 0; }
+.field label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.field input, .field textarea { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 10px 12px; width: 100%; min-width: 0; font-size: 16px; }
+.field textarea { resize: vertical; min-height: 70px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; }
+.field-grid .field:nth-child(2n) { border-left: 1px solid var(--line); }
+.field-grid .field:nth-child(-n+2) { border-top: 0; }
+details.week { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+details.week > summary { list-style: none; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; font-weight: 600; }
+details.week > summary::-webkit-details-marker { display: none; }
+details.week > summary .chev { transition: transform .2s; }
+details.week[open] > summary .chev { transform: rotate(90deg); }
+.session-head { padding: 10px 16px 4px; font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; border-top: 1px solid var(--line); background: var(--surface-2); }
+.flag-where { font-size: 12px; color: var(--muted); }
+
+/* Sheet */
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(10, 12, 16, .45); z-index: 30; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--bg); width: 100%; max-width: 560px; max-height: 92%; overflow: auto; border-radius: 18px 18px 0 0; padding: 0 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 16px; }
+.sheet-head { position: sticky; top: 0; background: var(--bg); display: flex; justify-content: space-between; align-items: center; padding: 14px 0 8px; z-index: 1; }
+.sheet-head h3 { margin: 0; font-family: var(--font-display); font-size: 20px; text-transform: uppercase; }
+
+/* Program */
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; overflow-x: auto; }
+.segmented button { border: 0; background: none; border-radius: 9px; padding: 8px 6px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.session-card { display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; border: 0; padding: 16px; }
+.session-num { font-family: var(--font-display); font-weight: 700; font-size: 44px; line-height: .9; color: var(--accent); min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+.session-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.session-body .names { color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cards { display: flex; flex-direction: column; gap: 10px; }
+.danger-zone { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; }
+.danger-zone p { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+.danger-zone .actions { display: flex; gap: 10px; }
+
+/* Exercise pager */
+body.pager-mode main { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.pager { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; margin-inline: -16px; padding-inline: 16px; scrollbar-width: none; scroll-padding-inline: 16px; }
+.pager::-webkit-scrollbar { display: none; }
+.ex-card { flex: 0 0 100%; scroll-snap-align: start; padding: 20px 18px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.ex-name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1; text-transform: uppercase; letter-spacing: .005em; text-wrap: balance; overflow-wrap: anywhere; }
+.ex-partners { color: var(--muted); font-size: 14px; margin: 0; }
+.ex-big { font-family: var(--font-display); font-weight: 700; font-size: 76px; line-height: .9; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.ex-big span { color: var(--muted); font-weight: 600; font-size: 52px; padding-inline: 4px; }
+.ex-big-caption { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+.chips-lg { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-lg .chip { font-size: 20px; padding: 6px 14px; font-family: var(--font-display); font-weight: 700; letter-spacing: .02em; }
+.chips-lg .chip small { font-family: var(--font-body); font-size: 11px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.fact { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
+.fact span { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.fact b { font-family: var(--font-display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.note-card { border-radius: 12px; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.note-card h4 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.note-card h4 svg { width: 14px; height: 14px; }
+.note-card p { margin: 0; }
+.note-tip { background: var(--surface); border-left: 3px solid var(--accent); border-top: 0; border-right: 0; border-bottom: 0; }
+.pager-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.pager-bar-inner { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+.round-btn { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.round-btn svg { width: 22px; height: 22px; }
+.round-btn:disabled { opacity: .35; cursor: default; }
+.round-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.next-label { min-width: 0; text-align: center; font-size: 13px; color: var(--muted); }
+.next-label b { display: block; color: var(--ink); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dots { display: flex; justify-content: center; gap: 5px; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.dots i.on { background: var(--accent); width: 16px; border-radius: 3px; }
+
+/* Registro allenamento */
+.log { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px; }
+.log-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.log-head h3 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 22px; text-transform: uppercase; letter-spacing: .01em; }
+.log-count { font-weight: 600; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-count.complete { color: var(--kg); }
+.last-time { display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
+.lt-head { font-size: 13px; color: var(--muted); }
+.lt-head b { display: block; color: var(--ink); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.lt-sets { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.lt-sets li { display: inline-flex; align-items: baseline; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; font-family: var(--font-display); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lt-sets li small { font-family: var(--font-body); font-size: 11px; font-weight: 700; color: var(--muted); }
+.lt-sets li .ok { color: var(--kg); }
+.lt-sets li .ko { color: var(--accent); }
+.lt-sets li.ko-row { border-color: var(--accent); }
+.lt-note { margin: 0; font-size: 13px; color: var(--muted); }
+.lt-note strong { color: var(--ink); font-weight: 600; }
+.set-row { display: grid; grid-template-columns: 26px minmax(0, 1.4fr) minmax(0, 1fr) 44px 44px; gap: 6px; align-items: center; }
+.set-n { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+button.set-n { border: 0; background: none; padding: 0; display: grid; place-items: center; height: 48px; color: var(--warn); }
+button.set-n svg { width: 18px; height: 18px; }
+.set-field { display: flex; align-items: center; gap: 6px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; min-height: 48px; min-width: 0; }
+.set-field:focus-within { border-color: var(--accent); }
+.set-field input { border: 0; background: none; width: 100%; min-width: 0; padding: 6px 0; font-family: var(--font-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; outline: none; }
+.set-field input::placeholder { color: var(--muted); opacity: .5; }
+.set-field span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.set-check, .set-miss { width: 44px; height: 48px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); display: grid; place-items: center; color: var(--muted); }
+.set-check svg, .set-miss svg { width: 22px; height: 22px; }
+.set-row.done .set-check { background: var(--kg); border-color: var(--kg); color: var(--surface); }
+.set-row.done .set-n { color: var(--kg); }
+.set-row.missed .set-miss { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.set-row.missed .set-n { color: var(--accent); }
+.set-row.missed .set-field input { text-decoration: line-through; text-decoration-thickness: 2px; }
+.notes-preview { font-size: 13px; color: var(--muted); background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+.notes-preview b { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
+.notes-preview span { color: var(--ink); }
+.log-count .miss-count { color: var(--accent); }
+.add-set { align-self: flex-start; }
+.text-field { display: flex; flex-direction: column; gap: 6px; }
+.text-field label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.text-field textarea { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 10px 12px; font-size: 16px; min-height: 64px; resize: vertical; width: 100%; }
+.text-field textarea:focus { border-color: var(--accent); outline: none; }
+.save-status { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.save-status.error { color: var(--warn); }
+.status-badge { font-size: 13px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.status-done { color: var(--kg); width: 22px; height: 22px; flex: none; }
+.session-progress { font-size: 12px; font-weight: 600; color: var(--kg); }
+.dots i.done { background: var(--kg); }
+.dots i.on { background: var(--accent); }
+.log-loading { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+
+/* Timer di recupero */
+.fact-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fact-btn { border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 13px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px; }
+.fact-btn svg { width: 14px; height: 14px; }
+.rt-fab { position: fixed; z-index: 26; width: 58px; height: 58px; border-radius: 50%; border: 0; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none;
+  background: conic-gradient(var(--accent) calc(var(--p, 0) * 1%), var(--fab-track) 0); box-shadow: 0 6px 18px rgba(0,0,0,.28); display: grid; place-items: center; cursor: grab; }
+.rt-fab-in { width: 48px; height: 48px; border-radius: 50%; background: var(--ink); color: var(--bg); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.rt-fab-in svg { width: 24px; height: 24px; }
+.rt-fab.dragging { cursor: grabbing; transition: none; box-shadow: 0 12px 28px rgba(0,0,0,.35); }
+.rt-fab.snap { transition: left .2s ease, top .2s ease; }
+.rt-fab.done { background: var(--kg); animation: rt-pulse 1s ease-in-out infinite; }
+.rt-fab.done .rt-fab-in { background: var(--kg); color: var(--surface); }
+@keyframes rt-pulse { 50% { transform: scale(1.12); } }
+.rt-panel { position: fixed; z-index: 25; width: min(340px, calc(100vw - 24px)); }
+.rt-card { max-width: 536px; margin: 0 auto; background: var(--ink); color: var(--bg); border-radius: 18px; padding: 12px 14px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 10px; }
+.rt-panel.done .rt-card { background: var(--kg); color: var(--surface); }
+.rt-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .85; min-width: 0; }
+.rt-top span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rt-close { border: 0; background: none; color: inherit; width: 32px; height: 32px; display: grid; place-items: center; flex: none; opacity: .8; }
+.rt-close svg { width: 18px; height: 18px; }
+.rt-main { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 8px; }
+.rt-time { font-family: var(--font-display); font-weight: 700; font-size: 56px; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.rt-adj { height: 48px; border-radius: 14px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); background: none; color: inherit; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rt-bar { height: 4px; border-radius: 2px; background: color-mix(in srgb, currentColor 22%, transparent); overflow: hidden; }
+.rt-bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s linear; }
+.rt-panel.done .rt-bar i { background: var(--surface); }
+.rt-actions { display: flex; gap: 8px; }
+.rt-actions button { flex: 1; min-height: 46px; border-radius: 999px; border: 0; font-weight: 700; font-size: 15px; }
+.rt-primary { background: var(--accent); color: var(--accent-ink); }
+.rt-secondary { background: color-mix(in srgb, currentColor 14%, transparent); color: inherit; }
+
+/* Backup */
+.backup-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.backup-card .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.backup-confirm { background: var(--surface-2); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+
+/* Export */
+.export-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.export-card .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.export-status { font-size: 13px; color: var(--muted); margin: 0; }
+.export-status.ok { color: var(--kg); }
+.export-status.error { color: var(--warn); }
+
+/* Data sessione e calendario */
+.session-date { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.session-date > div { min-width: 0; }
+.session-date input[type="date"] { border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 8px 10px; font-size: 16px; min-width: 0; max-width: 46%; }
+.cal { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cal-head h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; text-transform: uppercase; letter-spacing: .01em; }
+.cal-nav { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; color: var(--ink); }
+.cal-nav svg { width: 18px; height: 18px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px 0; }
+.cal-day { aspect-ratio: 1; max-width: 100%; border: 0; background: none; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); padding: 0; }
+.cal-day.out { visibility: hidden; }
+.cal-day.has { background: var(--surface-2); }
+.cal-day .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.cal-day .dot.none { background: transparent; }
+.cal-day.today { box-shadow: inset 0 0 0 2px var(--line); }
+.cal-day.selected { background: var(--accent); color: var(--accent-ink); }
+.cal-day.selected .dot { background: var(--accent-ink); }
+.cal-day.selected .dot.none { background: transparent; }
+.date-badge { flex: none; width: 46px; text-align: center; display: flex; flex-direction: column; line-height: 1; }
+.date-badge b { font-family: var(--font-display); font-size: 26px; font-variant-numeric: tabular-nums; }
+.date-badge span { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: .06em; }
+.empty-note { color: var(--muted); font-size: 14px; padding: 4px; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+<div id="app" aria-live="polite"></div>
+<input type="file" id="pdf-input" class="file-input" accept="application/pdf,.pdf">
+<input type="file" id="backup-input" class="file-input" accept="application/json,.json">
+
+<script src="vendor/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";</script>
+<script src="vendor/jspdf.umd.min.js"></script>
+
+<script id="fonts">
+/* DejaVu Sans Condensed (licenza libera Bitstream Vera/DejaVu), ridotto ai caratteri latini più ✓ e ✗, per il PDF. */
+var SCHEDA_FONTS = { regular: "AAEAAAAPAIAAAwBwR0RFRgGrAmoAAEA8AAAAIkdQT1NEdkx1AABAYAAAACBHU1VCJ6Q/wwAAQIAAAACWTUFUSIdl0z4AAEEYAAACsk9TLzLp/hW8AAA9QAAAAFZjbWFwjXGLIQAAPZgAAAB8Z2FzcAAHAAcAAEAwAAAADGdseWYHR3iLAAAA/AAANlZoZWFkJttMTwAAOUgAAAA2aGhlYQ0BB2QAAD0cAAAAJGhtdHjW8XG2AAA5gAAAA5xsb2Nhv6fN8QAAN3QAAAHUbWF4cAEpA8EAADdUAAAAIG5hbWUr3EGfAAA+FAAAAfpwb3N0/9sAWgAAQBAAAAAgAAIBFgAAAc0F1QADAAkAACUzFSMRMxEDIwMBFre3txKSE/7+BdX9cf6bAWUAAgCxA6oCnwXVAAMABwAAAREjESERIxEBSpkB7ZgF1f3VAiv91QIrAAIAjgAABXwFvgADAB8AAAEhAyELASETMwMhFSEDIRUhAyMTIQMjEyE1IRMhNSETA67++ksBBz1dAQZfkF0BGf7ESgEf/r5dkFz++V2RXv7kAT1M/t4BRVwDhf6yA4f+YQGf/mGa/rKZ/mIBnv5iAZ6ZAU6aAZ8AAAMAmf7TA/wGFAAhACgALwAAASMDLgEnNR4BFxEuATU0Njc1MxUeARcVLgEnER4BFRQGBwMRDgEVFBYXET4BNTQmAm9aAV+9X1y8ZMe1xLhaU51LS51TzMHNwFppbWXLcnRv/tMBLQItLbRAQQEByCSslqO8DuvoBB8bryouBP5VI7ScqcMPAwABmg1qWFZg1f5PEW5aWGgABQBl/+MGcgXwAAsAFwAjACcAMwAAASIGFRQWMzI2NTQmJzIWFRQGIyImNTQ2ASIGFRQWMzI2NTQmJTMBIxMyFhUUBiMiJjU0NgU8TllZTk1ZWU2OqKmNkKeo/O5NWVhOT1laAt+Q/LeQHI+pqY+PpqcCkZSEgpWVgoOVf9y7u9vbu7zbAmGVgoSUlISBln/58wYN27u92tu8utwAAgB0/+MFZQXwAAkAMAAAAQ4BFRQWMzI2NwkBPgE3MwYCBxMjJw4BIyIANTQ2Ny4BNTQ2MzIWFxUuASMiBhUUFgHAUky/kFWWQf6iAck1PAWoC15T++OBXc522P7seXgrLcilS5VMTo4+XnY1AyNRoViSwj9AAo/9+FnLcoT+/n7+45NZVwET14DhYz99PKLFJCS2LzFvWDNnAAEAsQOqAUsF1QADAAABESMRAUqZBdX91QIrAAABAJ7+8gI8BhIADQAAAQYCFRQSFyMmAjU0EjcCPHl1dniQiIaGiAYS5v4+5+f+O+XrAcbg3wHE7AAAAQCT/vICMQYSAA0AABMzFhIVFAIHIzYSNTQClJCHhoaHkHd2dgYS7P483+D+OuvlAcXn5wHCAAABADYCSgNjBfAAEQAAAQ0BByURIxEFJy0BNwURMxElA2P+vQFDNf7SZv7RNAFD/r00AS9mAS4E38LDYsv+hwF5y2LDwmPLAXn+h8sAAQDDAAAFRgUEAAsAAAERIRUhESMRITUhEQNQAfX+C5f+CgH2BQT906r90wItqgItAAABAI7/EgGWAP4ABQAANzMVAyMT2L6UdEr+rP7AAUAAAAEAWgHfAkACgwADAAATIRUhWgHl/hsCg6QAAQDFAAABgwD+AAMAADczFSPFvr7+/gAAAQAA/0ICbQXVAAMAAAEzASMB1Jn+LJkF1fltAAIAef/jBBsF8AALABcAAAEiAhEQEjMyEhEQAicyEhEQAiMiAhEQEgJKjI6OjI2NjY3i7u7i4u7uBVD+zf7M/s3+zQEzATMBNAEzoP5z/ob+h/5zAY0BeQF6AY0AAQDKAAAD6wXVAAoAADchEQU1JTMRIRUh5QEp/rwBQrYBKfz6qgRzSLhI+tWqAAEAhwAAA90F8AAcAAAlIRUhNTYANz4BNTQmIyIGBzU+ATMyFhUUBgcGAgFiAnr8q2cBZi5XRZZ5Vb5sbr9P0fg+UhfxqqqqdwGROm2XSXeWQkPMMTLowlylcB3+6wABAIz/4wQCBfAAKAAAAR4BFRQEIyImJzUeATMyNjU0JisBNTMyNjU0JiMiBgc1PgEzMhYVFAYC7IKT/u/8VbNgTLRiq7OmlZyjho+TiUuqZ2e1UM/ygAMlH8SQ3fIlJcMxMpaPhJWmd3BzeyQmtCAg0bJ8qwAAAgBaAAAELgXVAAIADQAACQEhAzMRMxUjESMRITUCuf41Acsw5b+/tf2hBSX84wPN/DOo/qABYMMAAAEAjv/jA/QF1QAdAAATIRUhET4BMzIAFRQAIyImJzUeATMyNjU0JiMiBgfHAsr93ChPKOEBB/7y9lWvXlGtYJy2tpxJkUsF1ar+kg8P/u7q8f71ICDLMTC2nJy2JCYAAAIAgP/jBCEF8AALACQAAAEiBhUUFjMyNjU0JhMVLgEjIgIDPgEzMhIVFAIjIgIREAAhMhYCYHqPj3p7j4/uRIxEtL4NNaBgy+v1zOn2AS4A/0SMAzu6oqG7u6GiugJ5uCQm/vL+71dd/u/r5v7qAY0BeQFiAaUeAAEAlwAAA/gF1QAGAAATIRUBIwEhlwNg/hi9Acr9ewXVVvqBBSsAAwB9/+MEFwXwAAsAIwAvAAABIgYVFBYzMjY1NCYlLgE1NDYzMhYVFAYHHgEVFAYjIiY1NDYTFBYzMjY1NCYjIgYCSoKUlIKClZX+yHWC5cjJ5IJ0g5Pv3t7vlEGCdnWEhHV2ggLFmoeHmpuGh5pWILKAs9DQs4CyICLGj9no6NmPxgFhdIKCdHSCggACAHT/4wQUBfAAGAAkAAA3NR4BMzISEw4BIyICNTQSMzISERAAIyImATI2NTQmIyIGFRQWykWMRLS+DTSgYcrr9cvp9v7T/0WMAR57j497eo+PH7gkJgENARJWXAEP6+YBFv5z/ob+n/5bHgKXuqKhu7uhoroAAgDYAAABlgQjAAMABwAANzMVIxEzFSPYvr6+vv7+BCP+AAIAjv8SAZYEIwADAAkAABMzFSMRMxUDIxPYvr6+lHRKBCP+/dms/sABQAAAAQDDAF4FRgSmAAYAAAkCFQE1AQVF/F8Doft+BIID8P6R/pO2AdGmAdEAAgDDAWAFRgOiAAMABwAAEyEVIRUhFSHDBIL7fgSC+34DoqjwqgABAMMAXgVGBKYABgAAEzUBFQE1AcMEgvt+A58D8Lb+L6b+L7YBbQAAAgCEAAADUgXwAAMAJAAAJTMVIxMjNTQ2PwE+ATU0JiMiBgc1PgEzMhYVFAYPAQ4BBw4BFQFgt7exrDNRUTMudmFHoVhVrlymyUFRTysjBwUG/v4BkZplglZZNV4xWW5GQ7w5OMKfTIlWVi81GRU8NAAAAgB5/pwGswWiAAsATAAAARQWMzI2NTQmIyIGAQ4BIyImNTQ2MzIWFzUzET4BNTQmJyYkIyIGBwYCFRQSFx4BMzI2NxcGBCMiJCcmAjU0Ejc2JDMyBBceARUQAAcCroBvb3+Cbm2AAeo2i12bwcKaXYw1gYOVOTle/vOeb8xWjaBoYl75jXTgXlFx/veJpv7Yc3N4enF0ATGqvgFHb0NH/uL8AhmPo6SOjKWk/khNSfnIyPpLTIP9IBbfsWu8UIOLQUBm/rXBn/7qamhtV1FvYWeDfX0BSb22AUp9f4euoGLme/75/tAGAAIADgAABN4F1QACAAoAAAEDIQEzASMDIQMjAnb3Ae/+oc8CAL17/aJ6wAUO/RkDrvorAX/+gQAAAwC0AAAEbgXVAAgAEQAgAAABESEyNjU0JiMBESEyNjU0JiMlITIWFRQGBx4BFRQGIyEBawEjk42Nk/7dAQ2Fg4OF/j0B0NDhc3CHlPXi/h4Cyf3dh4uMhQJm/j5vcnFwpsCxiaIUIMuYyNoAAQBn/+MEpAXwABkAAAEVLgEjIgIREBIzMjY3FQ4BIyAAERAAITIWBKNc0HXm9fXmddBcX9Z2/s7+ogFeATJ41gVi1V9e/sf+2P7Z/sdeX9NISAGfAWcBaAGfRwACALQAAAUfBdUACAARAAABETMgABEQACElISAAERAAKQEBa9sBFgED/v3+6v5vAXUBhwFt/pH+e/6LBS/7dwEYAS4BLAEXpv6X/oD+fv6WAAEAtAAABBcF1QALAAATIRUhESEVIREhFSG1A1H9ZQKA/YACrPyeBdWq/kaq/eOqAAEAtAAAA7oF1QAJAAATIRUhESEVIREjtQME/bICFf3rtgXVqv5Iqv03AAEAZ//jBP4F8AAdAAAlESE1IREOASMgABEQACEyFhcVLgEjIgIREBIzMjYESf7XAd1p/pD+xf6dAWMBO4PtZGXjffb4+PZhl9UBkab9f1NVAZkBbQFuAZlIRtdfYP7O/tH+0v7OJQAAAQC0AAAEtgXVAAsAABMzESERMxEjESERI7W2ApS2tv1stgXV/ZwCZPorAsf9OQAAAQC0AAABawXVAAMAABMzESO1trYF1forAAAB/6D+ZgFrBdUACwAAEzMREAYrATUzMjY1tba5zEU4eWMF1fqT/vL0qpbCAAEAtAAABOAF1QAKAAATMxEBMwkBIwERI7W2Alvq/WUCyu/9e7YF1f2JAnf9SPzjAs/9MQABALQAAAP5BdUABQAAEzMRIRUhtbYCjvy8BdX61aoAAAEAtAAABYMF1QAMAAATIQkBIREjEQEjAREjtQEPAVcBWAEPsf6ltv6lsAXV/AgD+PorBR/8AAQA+uEAAAEAtAAABK4F1QAJAAATMwERMxEjAREjtfUCVLD1/aywBdX7HwTh+isE4fsfAAACAGf/4wVEBfAACwAXAAABIgIREBIzMhIREAInIAAREAAhIAAREAAC1sbp6cbG6OjGARsBUv6u/uX+5f6tAVMFTP64/uX+5v64AUgBGgEbAUik/lv+nv6f/lsBpAFiAWIBpQAAAgC0AAAEGQXVAAgAEwAAAREzMjY1NCYjJSEyFhUUBisBESMBa+R/i4t//mYBmuLn5+LktgUv/c+Sh4aSpuPb3eL9qAACAGf++AVEBfAACwAdAAABIgIREBIzMhIREAIbASMnDgEjIAAREAAhIAAREAIC1sbp6cbG6Og579vHHh8P/uX+rQFTARsBGwFSvAVM/rj+5f7m/rgBSAEaARsBSPrP/t3vAgIBpQFhAWIBpf5b/p7+/P6OAAIAtAAABMwF1QATABwAAAEeARcTIwMuASsBESMRITIWFRQGAREzMjY1NCYjAzI7bji5xKxCfWzGtgGa5+J1/cjkhIaGhAK8FpB+/mgBf5Zi/YkF1dbYjboCT/3uh4ODhQAAAQB5/+MELAXwACcAAAEVLgEjIgYVFBYfAR4BFRQEIyImJzUeATMyNjU0Ji8BLgE1NDYzMhYD2me4VZWha5ZtzMH++/1g13Nv1GebqnqLbsy1+9xfxAWkxTc2gHZjZR8ZK9m22eAwL9BFRoh+bnwfGC3Aq8bkJgAAAf/6AAAEbAXVAAcAAAMhFSERIxEhBQRw/iO2/iMF1ar61QUrAAABAKD/4wSlBdUAEQAAEzMRFBYzMjY1ETMREAAjIgARoLedr6+ct/78/v/+/AXV/HXw09PwA4v8XP7c/tYBKgEkAAABAA4AAATeBdUABgAAIQEzCQEzAQIP/f++AaoBq73+AAXV+xcE6forAAABAD0AAAbjBdUADAAAEzMJATMJATMBIwkBIz24ARoBGswBGwEauP6v5f7l/uHkBdX7EgTu+xIE7vorBRD68AAAAQA2AAAEtgXVAAsAABMzCQEzCQEjCQEjAXTDAU4BUMP+UAHNw/6G/oPEAeAF1f3VAiv9M/z4Anv9hQMdAAAB//wAAARqBdUACAAAAzMJATMBESMRBMQBdAFyxP4ktgXV/ZoCZvzy/TkCxwAAAQBSAAAEnAXVAAkAABMhFQEhFSE1ASFoBB/8rwNm+7cDUfzEBdWa+2+qmgSRAAEAnv7yAhwGFAAHAAATIRUjETMVIZ4BftjY/oIGFI/5/I8AAAEAAP9CAm0F1QADAAATASMBmQHUmf4sBdX5bQaTAAEAs/7yAjEGFAAHAAABESE1MxEjNQIx/oLX1wYU+N6PBgSPAAEAwwOoBUYF1QAGAAAJASMJASMBA1wB6bX+dP50tQHpBdX90wGL/nUCLQAAAf/u/h0DrP6sAAMAAAEVITUDrPxC/qyPjwABAJkE8AJJBmYAAwAAARMjAQFK/or+2wZm/ooBdgACAG7/4wPDBHsACgAlAAABIgYVFBYzMjY9ATcRIzUOASMiJjU0NjsBNTQmIyIGBzU+ATMyFgJ4yZt0ZIqmpqY4qXubtuPi6JaIVqRMW6tR29gCM2Z7YnPZtClM/YGqZmHBor3AEn+LLi6qJyf8AAIAp//jBC4GFAALABwAAAE0JiMiBhUUFjMyNgE+ATMyEhEQAiMiJicVIxEzA4GWg4SWloSDlv3NNJ9vuOXluG+fNKenAi/L5+fLy+fnAlJkYf68/vj++P68YWSoBhQAAAEAZf/jA4QEewAZAAABFS4BIyIGFRQWMzI2NxUOASMiABEQADMyFgODRo1IorKyokiNRkWVU+T+9AEP602SBDWsKyvjzc3jKyuqJCQBPgEOARIBOiMAAgBl/+MD6wYUABAAHAAAAREzESM1DgEjIgIREBIzMhYBFBYzMjY1NCYjIgYDRaamNJ9wt+Xlt3Cf/gCWg4SXl4SDlgO2Al757KhkYQFEAQgBCAFEYf4Vy+fny8vn5wAAAgBl/+MEDAR7ABQAGwAAARUhHgEzMjY3FQ4BIyIAERAAMzISBy4BIyIGBwQM/QYLuaRgs1hZu2Dy/ucBC+PL7aYClHqLpwwCXlq+xzQ0riosATgBCgETAUP+3cSXtK6eAAABACoAAAKsBhQAEwAAARUjIgYdASEVIREjESM1MzU0NjMCrJ5aRQER/u+mn5+cqgYUmVBoY4/8LwPRj067qwAAAgBl/lYD6wR7AAsAKAAAATQmIyIGFRQWMzI2FxACIyImJzUeATMyNj0BDgEjIgIREBIzMhYXNTMDRZWGhZSUhYaVpuXsV5tJSY5Ko6IzoHC64uK6cKAzpgI9yNzcyMfc3Ov+4v7pHR6zLCq9v1tjYgE6AQMBBAE6YmOqAAEApwAAA/QGFAATAAABESMRNCYjIgYVESMRMxE+ATMyFgP0pnBvhpunpzuhaq2zAqT9XAKen56+pP2HBhT9nmVk7wAAAgCtAAABVAYUAAMABwAAEzMRIxEzFSOupaWlpQRg+6AGFOkAAv/e/lYBVAYUAAsADwAAEzMRFAYrATUzMjY1ETMVI66lkqM/LF5FpaUEYPuM1sCcYZkGKOkAAQCnAAAEJgYUAAoAABMzEQEzCQEjAREjp6cB7tT96QIt2P4ApwYU/GkB4/30/awCI/3dAAEArQAAAVQGFAADAAATMxEjrqWlBhT57AAAAQCnAAAGZwR7ACIAAAE+ATMyFhURIxE0JiMiBhURIxE0JiMiBhURIxEzFT4BMzIWA74/rHWeq6dmaoCWpmdrf5WnpzmebW6aA4l8dvXi/VwCnqGcvqT9hwKeopu/o/2HBGCuZ2J8AAABAKcAAAP0BHsAEwAAAREjETQmIyIGFREjETMVPgEzMhYD9KZwb4abp6c7oWqtswKk/VwCnp+evqT9hwRgrmVk7wACAGX/4wQDBHsACwAXAAABIgYVFBYzMjY1NCYnMhIREAIjIgIREBICNIWbmoaFmpqF2Pf32Nn19QPf58nJ5+jIx+mc/sj+7P7t/scBOQETARQBOAACAKf+VgQuBHsAEAAcAAAlESMRMxU+ATMyEhEQAiMiJgE0JiMiBhUUFjMyNgFOp6c0n2+45eW4b58B/5aDhJaWhIOWqP2uBgqqZGH+vP74/vj+vGEB68vn58vL5+cAAgBl/lYD6wR7AAsAHAAAARQWMzI2NTQmIyIGAQ4BIyICERASMzIWFzUzESMBEZaDhJeXhIOWAjQ0n3C35eW3cJ80pqYCL8vn58vL5+f9rmRhAUQBCAEIAURhZKr59gAAAQCnAAAC9gR7ABEAAAEuASMiBhURIxEzFT4BMzIWFwL2HEInjZanpzSodxEqGQO0EhHLvv2yBGCuZmMFBQABAGP/4wNnBHsAJwAAARUuASMiBhUUFh8BHgEVFAYjIiYnNR4BMzI2NTQmLwEuATU0NjMyFgMwRpdRe3xZhTixlN7CUbBhXLJXdX5bmjmaicq5XKIEP64oKFRUQEkhDiqZiZy2IyO+NTVZUUtQJQ8klYKerB4AAQAxAAACpwWeABMAAAERIRUhERQWOwEVIyImNREjNTMRAVIBVf6rQ2erq7+SeXkFnv7Cj/2giU6an9ICYI8BPgAAAgCc/+MD6QR7ABMAFAAAExEzERQWMzI2NREzESM1DgEjIiYBnaVwb4ebpqY8n2qttAGgAboCpv1hn5++pAJ7+6CsZmPwA6gAAQA2AAAEDARgAAYAABMzCQEzASM3rwE7ATuw/obhBGD8VAOs+6AAAAEATQAABZcEYAAMAAATMxsBMxsBMwEjCwEjTabPzsPPzqb++MPZ2sMEYPyWA2r8lgNq+6ADlvxqAAABADUAAAQHBGAACwAACQIjCQEjCQEzCQED9P6TAX/D/tv+2sMBiP6ZxAELAQsEYP3f/cEBuP5IAkoCFv5xAY8AAQA2/lYEDARgAA8AAAUOASsBNTMyNj8BATMJATMCUUaFcIRhREwuHv5orwE7ATuwaMh6mkiGVARO/JQDbAABAE8AAAN5BGAACQAAEyEVASEVITUBIWYDEv2SAm781wJv/agEYKj825OoAyUAAQDm/rIDrwYUACQAAAUVIyImPQE0JisBNTMyNj0BNDY7ARUjIgYdARQGBx4BHQEUFjMDrjjgmGGANzeBYJjgOD1/TVJjZFFNf76QlN3vl3SPc5Xw3ZOPWI34nY4ZG46c+I1YAAEA6v4dAYMGHQADAAABESMRAYOZBh34AAgAAAABAOb+sgOvBhQAJAAAFzMyNj0BNDY3LgE9ATQmKwE1MzIWHQEUFjsBFSMiBh0BFAYrAeY/fk1RZGRRTX4/OeCXYX84OH9hl+A5vlaP+JyOGxmOnfiOV4+T3fCVc490l+/dlAAAAQDDAdMFRgMxAB0AAAEVDgEjIicmJyYnJiMiBgc1PgEzMhcWFxYXFjMyNgVFXqFYY4MKBQYNjFRQmllfoVdjhQgFBw2LVU2YAzGyT0Q7BAIDBT5NU7JPRTwEAgMFPkwAAgEW/osBzQRgAAMACQAAASM1MxEjERMzEwHNt7e3E5ISA2L++isCjwFl/psAAAIAmv7HA7oFmAAGACEAACURDgEVFBYBFS4BJwM+ATcVDgEHESMRJgIREBI3ETMTHgECYoSUlAHbQ3o9AT97QTp8RVzZ7u7ZXAFCe4MDWBLiuLniA6GsKSoD/KAFKieqHiMH/uQBIBQBMwEBAQIBMhYBH/7hBCEAAAEAdAAAA/IF8AAbAAABFS4BIyIGHQEhFSERIRUhNTMRIzUzNRA2MzIWA+BFejeFaQFg/qAB9vyC1LOzwdE3iAW0tikpm9TXj/4vqqoB0Y/uAQXzHwAAAgBUAFIEQwSyACMALwAAATcXBx4BFRQGBxcHJw4BIyImJwcnNy4BNTQ2Nyc3Fz4BMzIWEzQmIyIGFRQWMzI2AyK6Z7oiICIkvGe6NWg3NGw3u2W6ISIiI7toujJoOjZpU4xmZY6NZmWNA+HRc847dz4/cznPcc8oJiUlz3POPnY6QHQ4znPPJyUk/nxwmppwcpydAAEASQAABEoF1QAYAAABIREjESE1ITUnITUzATMJATMBMxUhBxUhBBj+jbX+igF2TP7W7f7jqwFVAVOs/uLt/tdMAXUBx/45Acd7M5t7Akr9RAK8/bZ7mzMAAAIA6v6iAYMFmAADAAcAAAERIxETESMRAYOZmZkBmP0KAvYEAP0KAvYAAAIAUv89A0UF8AALAD4AAAEOARUUFhc+ATU0JhMVLgEjIgYVFBcWFx4BFRQGBx4BFRQGIyImJzUeATMyNjU0LwEuATU0NjcuATU0NjMyFgFVOTd94Tg4gbhLgDNXYbkYDL52U1Q4NLicQYtPToU0XGbHFsFzU1I1NbSWQYoDqC5aLkyFhy1bLkuIApOkJydQR1pzDwh3mmVajDU0bUCOqB0dpCcnVExmew54mWZbjzEscEWCnx0AAgDBBUYC2QYQAAMABwAAATMVIyUzFSMCIbe3/qG2tgYQysrKAAADAP4AAAY1Bc0AFwAvAEkAAAEyFhcWEhUUAgcOASMiJicmAjU0Ejc+ARciBgcOARUUFhceATMyNjc+ATU0JicuARcVLgEjIgYVFBYzMjY3FQ4BIyImNTQ2MzIWA5qI7WJiYWFiYu2Iie1iYmFhYmLtiXbMVFVWVlVUzHZ2zVRUVFVTVM2XPHU7hpeajDptPD17P8Li4sJCegXNbm1t/vqamP77bW1ubm1tAQWYmgEGbW1uZ15eXuWCgeNeXl9fXl3ig4XjXV5e9YEhIK+dn64fIn8dHPTQ0fIcAAMAZwHVAukF8AADAB4AKQAAEyEVIQERIzUOASMiJjU0NjsBNTQmIyIGBzU+ATMyFgciBhUUFjMyNj0BfQJr/ZUCaYYnglN0iKuqo2lpOHo+QoM+pKH4kXFYSl11AlB7Arj+QHA/RIdxh4oEW1siIn8cHLDwQ09ATZByHQACAI4AjQO7BCMABgANAAABFQkBFQE1ExUJARUBNQO7/vEBD/5aH/7xAQ/+WgQjv/70/vS/AaJSAaK//vT+9L8BolIAAAEAwwEfBUYDXgAFAAATIREjESHDBIKX/BUDXv3BAZUAAQBaAd8CQAKDAAMAABMhFSFaAeX+GwKDpAAEAP4AAAY1Bc0AFwAvADgATAAAASIGBw4BFRQWFx4BMzI2Nz4BNTQmJy4BJzIWFxYSFRQCBw4BIyImJyYCNTQSNz4BEyMRMzI2NTQmJzIWFRQGBx4BHwEjJy4BKwERIxEDmnbMVFVWVlVUzHZ2zVRUVFVTVM12iO1iYmFhYmLtiIntYmJhYWJi7XBubmNPUFuenV9WFT0pe5p1NUExO4wFZl5eXuWCgeNeXl9fXl3ig4XjXV5eZ25tbf76mpj++21tbm5tbQEFmJoBBm1tbv5i/uw+S0w/Z3d5VnARCE1J39FgM/6cA0QAAQC/BWIC2gX2AAMAABMhFSHAAhr95gX2lAACAK8DdQLrBfAACwAaAAABIgYVFBYzMjY1NCYnMhYXHgEVFAYjIiY1NDYBzUhjY0hIY2RHOWsmKimmeXmipQVvb1BPbW1PT3CBMS4tckKEt7SHhroAAAIAwwAABUYFBAALAA8AAAERIRUhESMRITUhEQEhFSEDUAH1/guX/goB9v4KBIL7fgUE/n2q/n0Bg6oBg/umqgABAFQCnAJvBfAAGAAAEyEVITU2NwA1NCYjIgYHNT4BMzIWFRQBBvEBfv3mHjkBNl5NLm5BRXgzg5z+1zMDDnJuHzgBMV5CUSMjexwchGyL/uQwAAABAFgCjQKGBfAAKAAAAR4BFRQGIyImJzUeATMyNjU0JisBNTMyNjU0JiMiBgc1PgEzMhYVFAYB2FJbq58zcT8vazxibGNiTVVUV1pVJFxJQnMygZhRBGASbVJ8hhUUeRsaT0ZKTGw/PDo9EhdzERJ2Y0VgAAEBTQTuAv0GZgADAAABMwEjAkqz/tuKBmb+iAABAJz+VgRoBGAAIAAAExEzERQWMzI2NREzERQWMzI2NxUOASMiJicOASMiJicRnaV8eoWGph8iCBwaJUIfPkoOLYJZW4Em/lYGCv1IkZSoqAKN/KI8OQsMlBcWTlBPT05O/dcAAQCO/zsDzQXVAA0AAAEhESMRIxEjES4BNTQ2AjoBk3+rgMHU6gXV+WYGH/nhA04R3bi+6AAAAQDFAkgBgwNGAAMAABMzFSPFvr4DRv4AAQEF/nUCewAAABMAACEeARUUBiMiJic1HgEzMjY1NCYnAhgyMGxqKU4nHkMqNTYmKT5pMFlbDAyDEQ8wLh5XPQAAAQB7ApwCfwXfAAoAABMzEQc1NzMRMxUhjLjJz3y4/g4DCgJjKXQn/StuAAADAFYB1QMOBfAAAwAPABsAABMhFSEBMhYVFAYjIiY1NDYXIgYVFBYzMjY1NCZ9Amv9lQE2obm5oaG8vKFfcXJeXnFwAlB7BBvdv7/b3L6/3XOhiIWgoIWJoAACAK0AjQPbBCMABgANAAATARUBNQkBJQEVATUJAa4Bpv5aAQ/+8QGGAab+WgEP/vEEI/5eUv5evwEMAQy//l5S/l6/AQwBDP//AHv/4wbABfAQJgB5AAAQJwDNBBf9ZBAHAMwC4wAA//8Ae//jBoYF8BAmAHkAABAnAHIEF/1kEAcAzALjAAD//wBY/+MGwAXwECYAcwAAECcAzQQX/WQQBwDMAuMAAAACAID+bgNOBGAAIAAkAAABMxUUBg8BDgEVFBYzMjY3FQ4BIyImNTQ2PwE+ATc+ATUTIzUzAcKrMVJQNS52YkeiVlWsXabJQVBQKyIHBwWwtbUCz5xlgldYNV4xWW5GQ7w5OMKfTIlWVi81GRU8NgEO/v//AA4AAATeB2sSJgAiAAAQBwDnBEMBdf//AA4AAATeB2sSJgAiAAAQBwDlBEMBdf//AA4AAATeB20SJgAiAAAQBwDoBEMBdf//AA4AAATeB14SJgAiAAAQBwDmBEMBdf//AA4AAATeB04SJgAiAAAQBwDkBEMBdQADAA4AAATeB20ACwAOACEAAAE0JiMiBhUUFjMyNgsBIQEuATU0NjMyFhUUBgcBIwMhAyMC/1A5Ok5POTlQifUB6/6CNziPaGeROTYB3717/aJ6wAZaP1lXQT9YWP7z/RkDTilzSXOgoXJGdin6iwF//oEAAAIABwAABo4F1QAPABMAAAEVIREhFSERIRUhESEDIwEXASERBnz9ZgKA/YACrPyd/iWQuQIzff7XAZ0F1ar+Rqr946oBf/6BBdWe/PADEAD//wBn/nUEpAXwEiYAJAAAEAcAeAEPAAD//wC0AAAEFwdrEiYAJgAAEAcA5wQoAXX//wC0AAAEFwdrEiYAJgAAEAcA5QQoAXX//wC0AAAEFwdtEiYAJgAAEAcA6AQoAXX//wC0AAAEFwdOEiYAJgAAEAcA5AQoAXX//wA1AAABjgdrEiYAKgAAEAcA5wLeAXX//wCRAAAB6QdrEiYAKgAAEAcA5QLeAXX////+AAACJAdtEiYAKgAAEAcA6ALeAXX//wAFAAACHAdOEiYAKgAAEAcA5ALeAXUAAgAJAAAFKAXVAAwAGQAAEyEgABEQACkBESM1MxMRIRUhETMgABEQACG+AXYBhgFt/pL+e/6KtbW3AS7+0toBFgED/v3+6gXV/pf+gP5+/pYCvJAB4/4dkP3qARgBLgEsARcA//8AtAAABK4HXhImAC8AABAHAOYEfgF1//8AZ//jBUQHaxImADAAABAHAOcEowF1//8AZ//jBUQHaxImADAAABAHAOUEowF1//8AZ//jBUQHbRImADAAABAHAOgEowF1//8AZ//jBUQHXhImADAAABAHAOYEowF1//8AZ//jBUQHThImADAAABAHAOQEowF1AAEA/AA/BQ0ExQALAAAJAgcJAScJATcJAQUM/mUBm2v+Y/5jagGa/mZqAZ0BnQRM/jX+N3kBy/41eQHJAct5/jUBywAAAwBb/7oFTwYXAAkAEwArAAAJAR4BMzISETQmJy4BIyICERQWFwcmAjUQACEyFhc3FwcWEhUQACEiJicHJwQ9/Xs4kVXG6CRsN5FWxukjI3hGRwFTARt1x06SXJlGSP6u/uVzx1KSXARY/LJAQwFIARpwuLhAQ/64/uVwvESeZgEIoAFiAaVNS79Zxmf+9p7+n/5bS0u/WP//AKD/4wSlB2sSJgA2AAAQBwDnBHABdf//AKD/4wSlB2sSJgA2AAAQBwDlBHABdf//AKD/4wSlB20SJgA2AAAQBwDoBHABdf//AKD/4wSlB04SJgA2AAAQBwDkBHABdf////wAAARqB2sSJgA6AAAQBwDlBAEBdQACALQAAAQZBdUADAAVAAATMxEzMhYVFAYrAREjExEzMjY1NCYjtbbk4ufn4uS2tuR/i4qABdX++OHc3OL+rgQn/dGShoaRAAABAKf/4wQ1BhQALwAAEzQ2MzIWFw4BFRQWHwEeARUUBiMiJic1HgEzMjY1NCYvAS4BNTQ2Ny4BIyIGFREjp9fFu8UDiJc0OjSVVsq+OnpCSH47aGw1W1NWTpaIB3ZmdXqpBHHI2+jgCHNgL1EqJWqOZKy3GRikHh1fWz9UPjc7h1t/rB1ncIuD+5MA//8Abv/jA8MGZhImAEIAABAGAEFKAP//AG7/4wPDBmYSJgBCAAAQBgB0SgD//wBu/+MDwwZmEiYAQgAAEAYAwUoA//8Abv/jA8MGNxImAEIAABAGAMNKAP//AG7/4wPDBhASJgBCAAAQBgBoSgD//wBu/+MDwwcGEiYAQgAAEAYAwkoAAAMAbv/jBrEEewAGADMAPgAAAS4BIyIGBwM+ATMyEh0BIR4BMzI2NxUOASMiJicOASMiJjU0NjsBNTQmIyIGBzU+ATMyFgMiBhUUFjMyNj0BBgoBlHuKpww9Qr93y+79Bgu4pF60Wlq7YJbfRULDgKq94+LolohWpExbq1GAwNfJm3RkiqYClJe0rp4BMFpe/t36Wr/INTWuKix5d3h4u6i9wBJ/iy4uqicnYP4YZntic9m0KQD//wBl/nUDhAR7EiYARAAAEAcAeACBAAD//wBl/+MEDAZmEiYARgAAEAYAQX0A//8AZf/jBAwGZhImAEYAABAGAHR9AP//AGX/4wQMBmYSJgBGAAAQBgDBfQD//wBl/+MEDAYQEiYARgAAEAYAaH0A////zAAAAXwGZhAnAEH/NAAAEgYAwAAA//8AgQAAAjEGZhAnAHT/NAAAEgYAwAAA////4QAAAiAGZhImAMAAABAHAMH/NAAA////9QAAAgwGEBImAMAAABAHAGj/NAAAAAIAZf/jBAMGFAAOACgAAAEuASMiBhUUFjMyNjU0JhMWEhUUACMiAhE0EjMyFhcnBSc3JzMXJRcFAvItTyWWp52Dg5wwCHFn/wDP0P74xxAvJo/+4R79o81yASwe/vYDkxEQ2MO83t68erwBJo/+4K3//skBNwD/+gE3BQW0a2NczJFvYWL//wCnAAAD9AY3EiYATwAAEAcAwwCJAAD//wBl/+MEAwZmEiYAUAAAEAYAQWgA//8AZf/jBAMGZhImAFAAABAGAHRoAP//AGX/4wQDBmYSJgBQAAAQBgDBaAD//wBl/+MEAwY3EiYAUAAAEAYAw2gA//8AZf/jBAMGEBImAFAAABAGAGhoAAADAMMAlgVGBG8AAwAHAAsAAAEzFSMRMxUjASEVIQKW3d3d3f4tBIL7fgRv9v4S9QJBqgAAAwBA/6IEJgS8AAkAEwArAAAJAR4BMzI2NTQmJy4BIyIGFRQWFwcuATUQEjMyFhc3FwceARUQAiMiJicHJwMu/kolXTqFmhJSJl04iJgREnAxMPXZVI88fVaDLzH32FaROX1WAyH9sCoo6MhPdZopKevTSG4ul03FdwEUATgzNKhPs03GeP7t/sc0M6hO//8AnP/jA+kGZhImAFYAABAGAEFvAP//AJz/4wPpBmYSJgBWAAAQBgB0bwD//wCc/+MD6QZmEiYAVgAAEAYAwW8A//8AnP/jA+kGEBImAFYAABAGAGhvAP//ADb+VgQMBmYSJgBaAAAQBgB0VQAAAgCn/lYELgYUABAAHAAAJREjETMRPgEzMhIREAIjIiYBNCYjIgYVFBYzMjYBTqenNJ9vuOXluG+fAf+Wg4SWloSDlqj9rge+/aJkYf68/vj++P68YQHry+fny8vn5wD//wA2/lYEDAYQEiYAWgAAEAYAaFUAAAIArQAAAVQEewADAAQAABMzESMTrqWlUgRg+6AEewAAAQCtBO4C7AZmAAYAAAEzEyMnByMBioXdfaKifQZm/oj19QAAAgDWBOECxAcGAAsAFwAAATQmIyIGFRQWMzI2NxQGIyImNTQ2MzIWAlZQOTtOTjs5UG2PZ2iPj2hnjwX0P1hXQEFXWEBzoKBzc5+fAAEAowUdAvYGNwAbAAABJy4BIyIGByM+ATMyFh8BHgEzMjY3Mw4BIyImAckzFB4LIyACcAJbUiM5ITQUHQwiIQFxAlxSIjoFWjcUE0lSh5McITcUE0lSh5McAAEAWgHpA0ACeQADAAATIRUhWgLm/RoCeZAAAQBaAekG2gJ5AAMAABMhFSFaBn/5gQJ5kAABAJwD6QGlBdUABQAAASM1EzMDAVq9k3RKA+mtAT/+wQAAAQCgA/4BqAXVAAUAABMzFQMjE+q+lHRKBdWY/sEBPwACAJwD6QMWBdUABQALAAABIzUTMwMFIzUTMwMBWr2TdEoBcr6TdEkD6a0BP/7Bra0BP/7BAAACAJwD6QMWBdUABQALAAATMxUDIxMlMxUDIxPmvpN0SQFxvpN0SQXVrP7AAUCsrP7AAUAAAQEUAdEDKwQhAAsAAAE0NjMyFhUUBiMiJgEUnHFwmptwcZsC+nyrq3x9rKwAAAMA1AAABl8A/gADAAcACwAAJTMVIyUzFSMlMxUjAzq/vwJlwMD7NcDA/v7+/v7+AAH+rv/jAoYF8AADAAABMwEjAfWQ/LmQBfD58wACADgCnAKpBd8AAgANAAAJASEDMxEzFSMVIzUhNQGt/uoBFhOVeXmC/owFZv5dAhz95G26unkAAAEAAP/jBBsF8AAxAAABFS4BIyIGByEHIQYUFRwBFyEHIR4BMzI2NxUOASMiAAMjNzM0JjU0NjUjNzMSADMyFgQaUphcjbYcAgcy/hwCAgGSM/6wHLaNXJhSUKZX1f7qJL4yfQEBrzKMJAEX1FmmBWLVaVrIu3sYLiMgLhh7u8paadNISAEiAQN7Fy8gIy8XewEBASJHAAEAnv38AvwHkgALAAABIzUQExITMwIDAhEBTrCQqJWQ6lFy/fzqA5cB4gIwAQP98/6G/e787QAAAQCe/fwBTgeJAAMAABMzESOesLAHifZzAAABAJ7+FAL8B4kACwAAARUQExITIwIDAhE1AU5yhLeQu4KQB4nq/KX+V/4U/mUBRQHuAiYDMuoAAAEAnv38AvwHkgALAAABNRADAgMzEhMSERUCTHNR6pCWp5D9/OoDEwISAXkCDv79/dD+Hvxp6gAAAQJL/fwC/AeJAAQAAAERIxEwAvuvB4n2cwmNAAEAnv4UAvwHiQALAAABMxUQAwIDIxITEhECTK+QgbyQt4RzB4nq/M392/4S/rsBmwHsAakDWwAAAQCe/fwC/AdtAAUAAAEjESEVIQFOsAJd/lP9/AlxwwABAJ79/AFOB4kAAwAAEzMRI56wsAeJ9nMAAAEAnv4UAvwHiQAFAAABESEVIREBTgGt/aMHifdOwwl1AAABAJ79/AL8B20ABQAAAREhNSERAkz+UgJd/fwIrsP2jwAAAQJL/fwC/Ad6AAMAAAEzESMCTK+vB3r2ggABAJ7+FAL8B3oABQAAATMRITUhAkyv/aMBrgd69prDAAECX/3qBNAHbQANAAABIxE0NzY7ARUjIgcGFQMHp2NtqPf9Wz0z/eoHdd+RnrBmV5kAAQCX/fwDBweGABgAAAEWFxYZASMRECcmLwE1MzI3NhkBMxEQBwYCUjQmW6dkQ+s3N+lFZKdbJALBID2T/kP96AIMAbdfQQQBu0VjAbMCDP3o/kiYPAABAl/+FATQB4YADQAAAREUFxY7ARUjIicmNREDBzM9W/33pm9jB4b4lJpWZrCej+EHZAAAAQJf/fQDBweMAAMAAAEjETMDB6en/fQJmAABAJf96gMHB20ADQAAARE0JyYrATUzMhcWFRECYDQ9W/34p21k/eoHfZlXZrCekd/4iwAAAQJf/fwE0AeGABgAAAEmJyYZATMREBcWOwEVBwYHBhkBIxEQNzYDFDYkWqdjRek3N+tDY6daJgLBITyYAbgCGP30/k1jRbsBBEFf/kn99AIYAb2TPQABAJf+FAMHB4YADQAAATMRFAcGKwE1MzI3NjUCYKdkb6X4/Vs9NAeG+Jzhj56wZlaaAAEBFADGBM8FCgAcAAABMhcWMzI3EhM2MzIWFRQHAAEGIyInJicmNTQ3NgGYIxIkDwwM/dc4ehwUHf6k/tcUQEEMHykvPycCjkB4FAHCARZIDAkOKf4w/fwkBg+KmScqJxgAAQDY/+4FDQXcAEMAAAEyFxYXNjMyFxYVFAcGAxYXFhUUBzAHFhUUBwYjIicmJwYDBiMiJyY1NDc2NxITAicmNTQ3NjMyFzY3NjMyFxYXNjc2BHkJDhAQGg8OFw4TvLBJgQobHAMUFwsXEmxzm8gdRCEDLgoEGbfNbSQJEREODhQIDBAaHAkxT4C4FQXcEBAaMxsRFRsX4v7xxu8UDBcZFgwUHhASGprQ4P6KNiocPVAfDioBPgEKASKdIwoOGhodEQwQHqiYuMwYAAL9JwUO/z8F2QADAAcAAAEzFSMlMxUj/oi2tv6gt7cF2cvLywAAAf20BO7/DAX2AAMAAAEzAyP+ZabNigX2/vgAAAH9CgUO/10F6QAdAAABJy4BIyIGHQEjNDYzMhYfAR4BMzI2PQEzDgEjIib+MDQWHAsgJHFdTSE3KzMVHg4dJHACXEweNgU5IQ4LMi0GZXYQGx4NDDMpBmR3EAAAAf1XBO7+sQX2AAMAAAETIwP+ALCJzwX2/vgBCAAAAf0gBO7/RgX4AAYAAAEzEyMnByP936m+fZaVfQX4/vaysgAAAAABAAAA6QNUACsAaAAMAAEAAAAAAAAAAAAAAAAACAAEAAAAAAAAABYAKgBmALIBAAFNAVsBeAGUAboB0wHjAfAB/AIKAjgCTwJ+ArkC1gMGA0IDVQObA9YD5wP9BBIEJQQ5BHIE5gUCBTgFZgWOBaYFuwXvBgcGFAYqBkQGVAZyBokGuwbdBxcHSAeEB5cHuAfNB+0IDAgjCDoITAhbCG0IgwiQCJ8I1gkGCTEJYQmSCbIJ8AoSCiQKPwpZCmYKmgq7CuULFAtEC2MLngu/C+ML9wwUDDQMUwxqDJwMqgzcDQwNDA0jDV8Nig3UDgEOFg5xDoQO8Q8vD1EPYQ9uD+IP7xAaEDoQZBCeEKwQ3hD5EQURJhE8EWkRjRGdEa0RvRH2EgISDhIaEiYSMhJsEpQSoBKsErgSxBLQEtwS6BL0EwATMhM+E0oTVhNiE24TehOcE+gT9BQAFAwUGBQkFEgUjhSZFKQUrxS6FMUU0BUrFTcVQhVNFVgVYxVvFXsVhxWTFdYV4hXtFfgWAxYOFhkWMxZ6FoUWkBabFqYWsRbhFuwW/BcOFzQXYRduF3sXjBecF7cX0RfoGAAYDhgqGHUYkRieGLoY1hjkGQAZEBkdGS4ZPxlMGVwZdRmgGboZxxnhGgwaJRpWGrsazhrcGwobGRsrAAEAAAACXrhEhrS4Xw889QAfCAAAAAAA4PrROQAAAADg+tE5+Kf8TAzqCdwAIAAIAAIAAAAAAAAEUgBbAkkAAALiARYDTwCxBggAjgSUAJkG1wBlBZ0AdAH6ALECzwCeAs8AkwOZADYGCADDAkkAjgKZAFoCSQDFAm0AAASUAHkElADKBJQAhwSUAIwElABaBJQAjgSUAIAElACXBJQAfQSUAHQCbQDYAm0AjgYIAMMGCADDBggAwwPSAIQHMwB5BOwADgTwALQFBwBnBYsAtASMALQEJAC0BZQAZwVqALQCHwC0Ah//oQS4ALQEAgC0BjYAtAViALQFqgBnBFcAtAWqAGcFAAC0BJIAeQRl//sFRQCgBOwADgceAD0E7gA2BGX//QTuAFICzwCeAm0AAALPALMGCADDA5n/7gOZAJkEaQBuBJIApwP1AGUEkgBlBG4AZQKIACoEkgBlBJAApwIAAK0CAP/fBCsApwIAAK0HAwCnBJAApwRnAGUEkgCnBJIAZQL1AKcDwABjAtIAMQSQAJwEQgA2BeMATQRCADUEQgA2A8cATwSUAOYCbQDqBJQA5gYIAMMCSQAAAuIBFgSUAJoElAB0BJQAVASUAEkCbQDqA5kAUgOZAMEHMwD+A2QAZwRnAI4GCADDApkAWgczAP4DmQC/A5kArwYIAMMC4gBUAuIAWAOZAU0ElACcBJQAjgJJAMUDmQEFAuIAewNkAFYEZwCtBvoAewb6AHsG+gBYA9IAgATsAA4E7AAOBOwADgTsAA4E7AAOBOwADgcDAAcFBwBnBIwAtASMALQEjAC0BIwAtAIfADUCHwCRAh///wIfAAUFlAAJBWIAtAWqAGcFqgBnBaoAZwWqAGcFqgBnBggA/AWqAFsFRQCgBUUAoAVFAKAFRQCgBGX//QRbALQEiQCnBGkAbgRpAG4EaQBuBGkAbgRpAG4EaQBuBxEAbgP1AGUEbgBlBG4AZQRuAGUEbgBlAgD/zQIAAIECAP/iAgD/9gRnAGUEkACnBGcAZQRnAGUEZwBlBGcAZQRnAGUGCADDBGcAQASQAJwEkACcBJAAnASQAJwEQgA2BJIApwRCADYCAACtA5kArQOZANYDmQCjA5kAWgczAFoCSQCcAkkAoAO6AJwDugCcBD8BFAczANQBM/6vAuIAOASUAAADmQCeA5kAngOZAJ4DmQCeA5kCSwOZAJ4DmQCeA5kAngOZAJ4DmQCeA5kCSwOZAJ4FZgJfBWYAlwVmAl8FZgJfBWYAlwVmAl8FZgCXBggBFAYIANgAAP0o/bX9C/1Y/SEAAQAAB23+HQAADX74p/rjDOoAAQAAAAAAAAAAAAAAAAAAAOUAAQOmAZAABAAABTMFmQAAAR4FMwWZAAAD1wBmAhIAAAILBgYDCAQCAgSAAAADAACAAgAAAAAAAAAAUGZFZABAACAnFwYU/hQBmgdtAeMAAAABAAAAAAAAAAAAAgAAAAMAAAAUAAMAAQAAABQABABoAAAAFgAQAAMABgB+AP8gFCAZIB0gIiAmIKwnEycX//8AAAAgAKAgEyAYIBwgIiAmIKwnEycX////4f/A4LHgruCs4KjgpeAi2c/ZzAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAWgADAAEECQAAATAAAAADAAEECQABACoBMAADAAEECQACAAgBWgADAAEECQADACoBMAADAAEECQAEACoBMAADAAEECQAFABgBYgADAAEECQAGACYBegBDAG8AcAB5AHIAaQBnAGgAdAAgACgAYwApACAAMgAwADAAMwAgAGIAeQAgAEIAaQB0AHMAdAByAGUAYQBtACwAIABJAG4AYwAuACAAQQBsAGwAIABSAGkAZwBoAHQAcwAgAFIAZQBzAGUAcgB2AGUAZAAuAAoAQwBvAHAAeQByAGkAZwBoAHQAIAAoAGMAKQAgADIAMAAwADYAIABiAHkAIABUAGEAdgBtAGoAbwBuAGcAIABCAGEAaAAuACAAQQBsAGwAIABSAGkAZwBoAHQAcwAgAFIAZQBzAGUAcgB2AGUAZAAuAAoARABlAGoAYQBWAHUAIABjAGgAYQBuAGcAZQBzACAAYQByAGUAIABpAG4AIABwAHUAYgBsAGkAYwAgAGQAbwBtAGEAaQBuAAoARABlAGoAYQBWAHUAIABTAGEAbgBzACAAQwBvAG4AZABlAG4AcwBlAGQAQgBvAG8AawBWAGUAcgBzAGkAbwBuACAAMgAuADMANwBEAGUAagBhAFYAdQBTAGEAbgBzAEMAbwBuAGQAZQBuAHMAZQBkAAAAAwAAAAAAAP/YAFoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIACAAC//8AAwABAAAADAAAAAAAAAACAAMAAQC/AAEAxADLAAEAzgDjAAEAAAABAAAACgAcAB4AAURGTFQACAAEAAAAAP//AAAAAAAAAAEAAAAKAJIAlAAUREZMVAB6YXJhYgCEYXJtbgCEYnJhaQCEY2FucwCEY2hlcgCEY3lybACEZ2VvcgCEZ3JlawCEaGFuaQCEaGVicgCEa2FuYQCEbGFvIACEbGF0bgCEbWF0aACEbmtvIACEb2dhbQCEcnVucgCEdGZuZwCEdGhhaQCEAAQAAAAA//8AAAAAAAAAAAAAAAAAAQAAAAoA4ADoAFAAPAwAB90AAAAAAoIAAARgAAAF1QAAAAAAAARgAAAAAAAAAAAAAAAAAAAEYAAAAAAAAAFoAAAEYAAAAFUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQ4AAAJ2AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABaAAABDgAAAFoAAABaAAABDgAAAAAAAAAAAAABDgAAAFoAAABaAAABDgAAAFoAAABaAAAAWgAAAXIAAABaAAAAWgAAAjgAAPuPAAAAPAAAAAAAAAAAACgAHgAwAAcAAwA6AGIAigCyANoBFgE0AXABjgGsAAEABwAJAAoAPAA+AFwAXQBeAAEAAwAeAEAAbwAEAAAAAAAAAAMA0QAAACgJdQAAANAAKAAoCY0AAQDPACgAAAmWAAAABAAAAAAAAAADANQAAAAoCXUAAADTACgAKAmNAAEA0gAoAAAJlgAAAAQAAAAAAAAAAwDXAAAAKAl1AAAA1gAoACgJjQABANUAKAAACXEAAAAEAAAAAAAAAAMA2gAAACgJZgAAANkAKAAoCX4AAQDYACgAAAlxAAAABAAAAAAAAAAFAN0AAAAoCXIAAADeACgAKAmYAAEA3AAoACgJigAAAN4AKAAoCZgAAQDbACgAAAmDAAAABAAAAAAAAAACAF0AAAAoCAAAAABdACgAAAgAAAEABAAAAAAAAAAFAOEAAAAoCXIAAADeACgAKAmYAAEA4AAoACgJigAAAN4AKAAoCZgAAQDfACgAAAmDAAAABAAAAAAAAAACAB4AAAAkBIIAAAAeACQAAASCAAEABAAAAAAAAAACAEAAAAAkA74AAABAACQAAAO+AAEABAAAAAAAAAACAG8AAAAkAhoAAABvACQAAAIaAAEAAA==", bold: "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daiodS9MezZNTTY2TU37nwJSAAIAAAAAB0oF1QADABMAAAEDIREBIREhESERIREhESERIQMhAyLmAVP+owUD/bQCKf3XAmH8Rf5DhP6yBNX9ngJiAQD+3f7q/t3+qv7dAV7+ov//AFv+bwTTBfASJgAkAAAQBwB4AU4AAP//AKkAAARlB2sSJgAmAAAQBwDUBDwBdf//AKkAAARlB2sSJgAmAAAQBwDSBDwBdf//AKkAAARlB2sSJgAmAAAQBwDVBDwBdf//AKkAAARlB2sSJgAmAAAQBwDRBDwBdf//ABMAAAIEB2sSJgAqAAAQBwDUAw0Bdf//AKkAAAJtB2sSJgAqAAAQBwDSAw0Bdf//AAIAAAKqB2sSJgAqAAAQBwDVAyMBdf//ADoAAAJyB2sSJgAqAAAQBwDRAyMBdQACAB0AAAWrBdUADAAfAAABETMRIxEzMjY1NCYjASEgBBcWEhUUAgcGBCkBESMRMwIV09N71OHg1f4qAW0BMwEqbF5dXV5s/tH+0v6TnJwEsv6//vz+turf3ugBI2F0Zf74p6n+92V0YQJtAQQA//8AqQAABV4HbRImAC8AABAHANMEsAF1//8AW//jBcMHaxImADAAABAHANQExgF1//8AW//jBcMHaxImADAAABAHANIExgF1//8AW//jBcMHaxImADAAABAHANUExgF1//8AW//jBcMHbRImADAAABAHANME3QF1//8AW//jBcMHaxImADAAABAHANEE3AF1AAEA5gApBSIE2wALAAAJAgcJAScJATcJAQUi/nkBh5f+ef56mAGH/nmYAYYBhwQz/k7+UKgBsP5QqAGwAbKo/k4BsgAAAwAo/7YF7gYfAAkAEwArAAABHgEzMhI1NCYvAS4BIyICFRQWFwMuATUQACEyFhc3FwceARUQACEiJicHJwIgLnZLn68ODkUudUqerw0M+kNCAXABQ4vfXLNltUZE/pH+vIrlXLZmAXM+OwEE60R1MZM6Of787EBxLv7qZPqXAWsBnEtNx3PHY/+a/pb+ZE9Py3EA//8Aqf/jBTAHaxImADYAABAHANQEowF1//8Aqf/jBTAHaxImADYAABAHANIEowF1//8Aqf/jBTAHaxImADYAABAHANUEugF1//8Aqf/jBTAHaxImADYAABAHANEEugF1////7gAABUkHaxImADoAABAH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" };
+</script>
+
+<script id="exporter">
+/* ===== Export PDF =====
+   Ridisegna la tabella della scheda del coach (stesse colonne e colori) con
+   Feedback e Note compilati. Una pagina (o più) per settimana. */
+var SchedaExport = (function () {
+  // Bordi delle colonne in punti, come nel PDF del coach (A4, 595 × 842 pt)
+  var X = [53, 118.5, 141.5, 164, 189.5, 219.5, 240, 265, 295, 381, 441.5, 532.5];
+  var LABELS = ["Esercizio", "Serie", "Rip.", "%1RM", "Carico (kg)", "RPE", "Rec.", "Volume", "Tip tecniche", "Feedback", "Note"];
+  var CENTER = [false, true, true, true, true, true, true, true, false, false, false];
+  var FS = 5.2, LH = 6.6, PAD = 1.6, BAND = 6.6, TOP = 56, BOTTOM = 800;
+  var GREEN = [217, 234, 211], BLUE = [31, 78, 120], INK = [20, 24, 32], MUTED = [105, 113, 124];
+  var ALLOWED = /[^\n -~ -ÿ–—‘’“”•…€✓✗]/g;
+
+  function clean(t) { return String(t == null ? "" : t).replace(/\r/g, "").replace(ALLOWED, ""); }
+
+  function build(jsPDF, fonts, o) {
+    var doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
+    doc.addFileToVFS("dv.ttf", fonts.regular); doc.addFont("dv.ttf", "DV", "normal");
+    doc.addFileToVFS("dvb.ttf", fonts.bold); doc.addFont("dvb.ttf", "DV", "bold");
+    doc.setProperties({ title: o.title, creator: "Scheda" });
+    doc.setLineHeightFactor(LH / FS);
+    var p = o.program, firstPage = true, y = TOP;
+
+    function font(style, size, color) { doc.setFont("DV", style); doc.setFontSize(size); doc.setTextColor(color[0], color[1], color[2]); }
+    function newPage() { doc.addPage(); y = TOP; }
+    function header() {
+      doc.setFillColor(BLUE[0], BLUE[1], BLUE[2]); doc.rect(X[0], y, X[11] - X[0], BAND, "F");
+      font("bold", FS, [255, 255, 255]);
+      LABELS.forEach(function (l, i) { doc.text(l, (X[i] + X[i + 1]) / 2, y + 0.9, { align: "center", baseline: "top" }); });
+      y += BAND;
+    }
+    function grid(top, bottom) {
+      doc.setDrawColor(204, 204, 204); doc.setLineWidth(0.5);
+      X.forEach(function (x) { doc.line(x, top, x, bottom); });
+      doc.line(X[0], bottom, X[11], bottom);
+    }
+    // Lascio un po' di margine a destra: il testo resta ben dentro la sua colonna anche se il PDF viene reimportato.
+    function cellLines(text, i) { return doc.splitTextToSize(clean(text), X[i + 1] - X[i] - 2 * PAD - 3); }
+
+    o.weeks.forEach(function (wi) {
+      var w = p.weeks[wi];
+      if (!firstPage) newPage(); firstPage = false;
+      font("bold", 7.1, INK);
+      doc.text("SETTIMANA " + w.number, X[0] + 1, y, { baseline: "top" });
+      font("normal", FS, MUTED);
+      doc.text(clean(o.subtitle), X[11], y + 1.5, { align: "right", baseline: "top" });
+      y += 14;
+
+      w.sessions.forEach(function (s, si) {
+        var rows = [], inSS = null;
+        s.exercises.forEach(function (e, ei) {
+          if (e.supersetGroup != null && e.supersetGroup !== inSS) rows.push({ superset: true });
+          inSS = e.supersetGroup != null ? e.supersetGroup : null;
+          rows.push({
+            values: [e.name, e.sets, e.reps, e.percent, e.load, e.rpe, e.rest, e.volume, e.tip,
+              o.feedbackFor(wi, si, ei, e), o.noteFor(wi, si, ei, e)]
+          });
+        });
+        // Altezza di ogni riga: la cella con più righe di testo
+        font("normal", FS, INK);
+        rows.forEach(function (r) {
+          if (r.superset) { r.h = LH + 1.5; return; }
+          r.lines = r.values.map(function (v, i) { return cellLines(v, i); });
+          r.h = Math.max.apply(null, r.lines.map(function (l) { return Math.max(1, l.length); })) * LH + 1.5;
+        });
+
+        var needed = BAND * 2 + (rows[0] ? rows[0].h : 0);
+        if (y + needed > BOTTOM) newPage();
+
+        // Fascia verde con numero sessione e data di esecuzione
+        doc.setFillColor(GREEN[0], GREEN[1], GREEN[2]); doc.rect(X[0], y, X[11] - X[0], BAND, "F");
+        font("bold", FS, INK);
+        doc.text("SESSIONE " + s.number, X[0] + 1, y + 0.9, { baseline: "top" });
+        var date = o.dateFor(wi, si);
+        if (date) { font("normal", FS, INK); doc.text(clean("Svolta " + date), X[11] - 1.5, y + 0.9, { align: "right", baseline: "top" }); }
+        y += BAND;
+        header();
+        var top = y;
+
+        rows.forEach(function (r) {
+          if (y + r.h > BOTTOM) { grid(top, y); newPage(); header(); top = y; }
+          if (r.superset) {
+            font("bold", FS, INK);
+            doc.text("SUPERSET:", X[0] + PAD, y + 0.8, { baseline: "top" });
+          } else {
+            r.lines.forEach(function (lines, i) {
+              if (!lines.length || (lines.length === 1 && !lines[0])) return;
+              font("normal", FS, INK);
+              var x = CENTER[i] ? (X[i] + X[i + 1]) / 2 : X[i] + PAD;
+              doc.text(lines, x, y + 0.8, { baseline: "top", align: CENTER[i] ? "center" : "left" });
+            });
+          }
+          y += r.h;
+          doc.setDrawColor(232, 232, 232); doc.setLineWidth(0.3);
+          doc.line(X[0], y, X[11], y);
+        });
+        grid(top, y);
+        y += 12;
+      });
+    });
+    return doc;
+  }
+
+  return { build: build };
+})();
+</script>
+
+
+<script id="parser">
+/* ===== Parser della scheda del coach =====
+   Il PDF non ha celle, solo testo posizionato. Prendo ogni carattere con la
+   sua posizione, raggruppo i caratteri in righe, li assegno a una colonna in
+   base al centro orizzontale (bordi ricavati dalla riga di intestazione) e
+   tratto le righe senza "Serie" come testo andato a capo. */
+var SchedaParser = (function () {
+  var COLUMNS = ["Esercizio", "Serie", "Rip.", "%1RM", "Carico", "RPE", "Rec.", "Volume", "Tip", "Feedback", "Note"];
+  var KEYS = ["name", "sets", "reps", "percent", "load", "rpe", "rest", "volume", "tip", "feedback", "note"];
+  // Distanza tra l'inizio dell'intestazione e il bordo sinistro della colonna,
+  // misurata sul template del coach (le intestazioni sono centrate nelle celle).
+  var HEADER_OFFSET = { "Serie": 6.5, "Rip.": 7.5, "%1RM": 6, "Carico": 4.5, "RPE": 6.5, "Rec.": 8, "Volume": 7, "Tip": 31, "Feedback": 21, "Note": 40.5 };
+  var WORD_GAP = 0.5; // tra lettere ~0 pt, tra parole ~1.2 pt (font 4.9 pt)
+
+  // items: elementi di pdf.js getTextContent() → caratteri con posizione
+  function glyphsFromItems(items) {
+    var out = [], pendingSpace = false;
+    items.forEach(function (it) {
+      var s = it.str || "";
+      if (!s) { if (it.hasEOL) pendingSpace = true; return; }
+      var t = it.transform, x = t[4], y = t[5];
+      var size = Math.hypot(t[2], t[3]) || Math.abs(t[3]) || 5;
+      // Se pdf.js restituisce più caratteri insieme, divido la larghezza in proporzione
+      // alla larghezza tipica di ogni carattere (stretti come "i", larghi come "m" o "%").
+      var chars = Array.from(s);
+      var weights = chars.map(charWeight), total = weights.reduce(function (a, b) { return a + b; }, 0) || 1;
+      var unit = (it.width || 0) / total, cx = x;
+      chars.forEach(function (c, i) {
+        var cw = weights[i] * unit, x0 = cx;
+        cx += cw;
+        if (!c.trim()) { pendingSpace = true; return; }
+        out.push({ t: c, x0: x0, x1: x0 + cw, y: y, size: size, sp: pendingSpace });
+        pendingSpace = false;
+      });
+      if (it.hasEOL) pendingSpace = true;
+    });
+    return out;
+  }
+
+  // Larghezze approssimate (in millesimi di em, stile Helvetica)
+  function charWeight(c) {
+    if (/[ijl'|.,:;!]/.test(c)) return 240;
+    if (/[ftrI\s()\[\]\-]/.test(c)) return 320;
+    if (/[mwMW%]/.test(c)) return 860;
+    if (/[A-Z]/.test(c)) return 680;
+    if (/[0-9]/.test(c)) return 556;
+    return 520;
+  }
+
+  function linesOf(glyphs) {
+    if (!glyphs.length) return [];
+    var sorted = glyphs.slice().sort(function (a, b) { return b.y - a.y; });
+    var sizes = glyphs.map(function (g) { return g.size; }).sort(function (a, b) { return a - b; });
+    var tol = Math.max(1, sizes[Math.floor(sizes.length / 2)] * 0.35);
+    var lines = [], center = null;
+    sorted.forEach(function (g) {
+      var last = lines[lines.length - 1];
+      if (last && Math.abs(g.y - center) <= tol) {
+        last.push(g); center += (g.y - center) / last.length;
+      } else { lines.push([g]); center = g.y; }
+    });
+    return lines.map(function (l) { return l.sort(function (a, b) { return a.x0 - b.x0; }); });
+  }
+
+  function join(glyphs, ignoreFirstSpace) {
+    var s = "", prev = null;
+    glyphs.forEach(function (g, i) {
+      if (prev !== null && (g.x0 - prev > WORD_GAP || (g.sp && !(ignoreFirstSpace && i === 0)))) s += " ";
+      s += g.t; prev = g.x1;
+    });
+    return s.trim();
+  }
+
+  function columnBorders(header) {
+    var borders = [], missing = [], from = 0;
+    COLUMNS.slice(1).forEach(function (label) {
+      var chars = Array.from(label), found = -1;
+      for (var i = from; i <= header.length - chars.length; i++) {
+        var ok = true;
+        for (var k = 0; k < chars.length; k++) if (header[i + k].t !== chars[k]) { ok = false; break; }
+        if (ok) { found = i; break; }
+      }
+      if (found < 0) missing.push(label);
+      else { borders.push(header[found].x0 - (HEADER_OFFSET[label] || 0)); from = found + chars.length; }
+    });
+    if (missing.length) throw new Error("L'intestazione della tabella non è quella attesa (mancano: " + missing.join(", ") + ").");
+    return borders;
+  }
+
+  function cells(line, borders) {
+    var buckets = COLUMNS.map(function () { return []; });
+    line.forEach(function (g) {
+      var mid = (g.x0 + g.x1) / 2, col = 0;
+      borders.forEach(function (b) { if (mid >= b) col++; });
+      buckets[col].push(g);
+    });
+    return buckets.map(function (b) { return join(b, true); });
+  }
+
+  function numberAfter(keyword, text) {
+    var m = new RegExp("^" + keyword + "\\s*(\\d+)", "i").exec(text);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function emptyExercise(values) {
+    var e = { supersetGroup: null };
+    KEYS.forEach(function (k, i) { e[k] = values[i] || ""; });
+    return e;
+  }
+
+  // pages: array di array di item pdf.js, una per pagina
+  function parse(pages, fileName) {
+    var weeks = [], borders = null, ssCounter = 0, inSS = false;
+    pages.forEach(function (items) {
+      linesOf(glyphsFromItems(items)).forEach(function (line) {
+        var text = join(line);
+        var n = numberAfter("SETTIMANA", text);
+        if (n !== null) { weeks.push({ number: n, sessions: [] }); return; }
+        n = numberAfter("SESSIONE", text);
+        if (n !== null) {
+          if (!weeks.length) weeks.push({ number: 1, sessions: [] });
+          weeks[weeks.length - 1].sessions.push({ number: n, exercises: [] });
+          inSS = false; return;
+        }
+        if (/^Esercizio/.test(text)) { borders = columnBorders(line); return; }
+        if (!borders || !weeks.length) return;
+        var week = weeks[weeks.length - 1];
+        var session = week.sessions[week.sessions.length - 1];
+        if (!session) return;
+
+        var values = cells(line, borders);
+        var rest = values.slice(1).every(function (v) { return !v; });
+        if (rest && values[0].toUpperCase().replace(/[:\s]+$/, "") === "SUPERSET") { ssCounter++; inSS = true; return; }
+
+        if (values[1]) {
+          var ex = emptyExercise(values);
+          ex.supersetGroup = inSS ? ssCounter : null;
+          session.exercises.push(ex);
+        } else if (session.exercises.length) {
+          var cur = session.exercises[session.exercises.length - 1];
+          KEYS.forEach(function (k, i) { if (values[i]) cur[k] = cur[k] ? cur[k] + " " + values[i] : values[i]; });
+        }
+      });
+    });
+    var count = 0;
+    weeks.forEach(function (w) { w.sessions.forEach(function (s) { count += s.exercises.length; }); });
+    if (!count) throw new Error("Non ho trovato esercizi nel PDF. Il formato potrebbe essere diverso da quello della scheda del coach.");
+    var base = (fileName || "Scheda").replace(/\.pdf$/i, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+    return { title: base || "Scheda", fileName: fileName || "", weeks: weeks };
+  }
+
+  function numbersIn(text) {
+    return (String(text || "").match(/\d+(?:[.,]\d+)?/g) || []).map(function (s) { return parseFloat(s.replace(",", ".")); });
+  }
+
+  function issues(e) {
+    var out = [];
+    if (!e.name) out.push("Nome esercizio mancante");
+    if (!e.sets) out.push("Numero di serie mancante");
+    else if (!/^\d+$/.test(e.sets)) out.push("Serie non numeriche: \"" + e.sets + "\"");
+    if (!e.reps) out.push("Ripetizioni mancanti");
+    if (numbersIn(e.percent).some(function (v) { return v < 30 || v > 110; }))
+      out.push("Percentuale insolita (" + e.percent + "): probabile refuso, verifica con il coach");
+    var r = numbersIn(e.rpe)[0];
+    if (r !== undefined && (r < 1 || r > 10)) out.push("RPE fuori scala (" + e.rpe + ")");
+    return out;
+  }
+
+  // "1.30\"" e "2.30'" significano minuti.secondi; "2\"" = 2 minuti. Il resto resta com'è.
+  function restDisplay(rest) {
+    if (!rest) return "";
+    var t = rest.replace(/["'’”\s]/g, "");
+    var m = /^(\d+)(?:\.(\d+))?$/.exec(t);
+    if (!m) return rest;
+    var sec = m[2] ? parseInt(m[2], 10) : 0;
+    return sec ? m[1] + "'" + String(sec).padStart(2, "0") + "\"" : m[1] + "'";
+  }
+
+  return { parse: parse, issues: issues, restDisplay: restDisplay };
+})();
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var P = SchedaParser;
+
+  /* ---------- Icone ---------- */
+  var ICON = {
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    prev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    warn: '<svg class="warn-dot" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5 1.5 21h21L12 2.5zm-1 7h2v6h-2v-6zm0 8h2v2h-2v-2z"/></svg>',
+    timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>',
+    ss: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
+    tip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2z"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+    note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h5"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    checkCircle: '<svg class="status-done" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4-7 7z"/></svg>',
+    timer2: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></svg>',
+    cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+    cross: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>',
+    minus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>'
+  };
+
+  /* ---------- Salvataggio ----------
+     Dentro Claude: database privato del tuo account (data/users/<id>).
+     Altrove (pagina aperta da sola): memoria del browser su questo dispositivo. */
+  var LOCAL_KEY = "scheda.programs.v1";
+  var store = {
+    mode: "loading", col: null,
+    init: function () {
+      var self = this;
+      var c = window.claude;
+      if (!c || typeof c.use !== "function") { self.mode = "local"; return Promise.resolve(); }
+      return Promise.all([c.use("db"), c.use("user")]).then(function (r) {
+        var db = r[0], user = r[1];
+        if (!db || !user) { self.mode = "local"; return; }
+        return user.id().then(function (uid) {
+          if (uid) { self.col = db.collection("data/users/" + uid); self.mode = "db"; }
+          else self.mode = "local";
+        });
+      }).catch(function () { self.mode = "local"; });
+    },
+    readLocal: function () {
+      try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || "{}") || {}; } catch (e) { return {}; }
+    },
+    writeLocal: function (all) {
+      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(all)); return true; } catch (e) { return false; }
+    },
+    list: function () {
+      var self = this;
+      if (self.mode === "db") {
+        return self.col.get().then(function (snap) {
+          return snap.docs.filter(function (d) { return d.exists && d.id.indexOf("prog-") === 0; })
+            .map(function (d) { return Object.assign({ id: d.id }, JSON.parse(JSON.stringify(d.data()))); });
+        });
+      }
+      var all = self.readLocal();
+      return Promise.resolve(Object.keys(all).map(function (id) { return Object.assign({ id: id }, all[id]); }));
+    },
+    save: function (program) {
+      var self = this, id = program.id || ("prog-" + Date.now().toString(36));
+      var body = { title: program.title, fileName: program.fileName, importedAt: program.importedAt, weeks: program.weeks };
+      if (self.mode === "db") return self.col.doc(id).set(body).then(function () { return id; });
+      var all = self.readLocal(); all[id] = body;
+      if (!self.writeLocal(all)) return Promise.reject(new Error("Il browser non permette di salvare dati su questo dispositivo."));
+      // Chiedo al browser di non cancellare questi dati quando libera spazio
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+      return Promise.resolve(id);
+    },
+    remove: function (id) {
+      if (this.mode === "db") {
+        var col = this.col;
+        return col.doc(id).delete().then(function () { return col.doc("log-" + id).delete(); });
+      }
+      var all = this.readLocal(); delete all[id]; this.writeLocal(all);
+      try { localStorage.removeItem(LOCAL_KEY + ".log." + id); } catch (e) {}
+      return Promise.resolve();
+    },
+    // Registro allenamento: un documento per scheda, con una voce per esercizio.
+    getLogs: function (id) {
+      if (this.mode === "db") {
+        return this.col.doc("log-" + id).get().then(function (snap) {
+          var d = snap.exists ? JSON.parse(JSON.stringify(snap.data())) : {};
+          return { entries: d.entries || {}, sessions: d.sessions || {} };
+        });
+      }
+      try {
+        var raw = JSON.parse(localStorage.getItem(LOCAL_KEY + ".log." + id) || "{}") || {};
+        // Formato precedente: solo la mappa degli esercizi
+        return Promise.resolve(raw.entries ? { entries: raw.entries, sessions: raw.sessions || {} } : { entries: raw, sessions: {} });
+      } catch (e) { return Promise.resolve({ entries: {}, sessions: {} }); }
+    },
+    // sessions: "w-s" -> data di esecuzione "AAAA-MM-GG"
+    saveLogs: function (id, entries, sessions) {
+      if (this.mode === "db") return this.col.doc("log-" + id).set({ entries: entries, sessions: sessions || {}, updatedAt: new Date().toISOString() });
+      try { localStorage.setItem(LOCAL_KEY + ".log." + id, JSON.stringify({ entries: entries, sessions: sessions || {} })); return Promise.resolve(); }
+      catch (e) { return Promise.reject(e); }
+    }
+  };
+
+  /* ---------- Stato ---------- */
+  var state = {
+    view: "home",          // home | review | program | session | exercise
+    programs: [],
+    loading: true,
+    busy: false,
+    error: "",
+    pending: null,         // programma appena letto, in revisione
+    flagged: [],           // [w, s, e] da controllare (fotografia all'import)
+    editing: null,         // [w, s, e] in modifica nella revisione
+    programId: null,
+    week: 0, session: 0, exercise: 0,
+    confirmDelete: false,
+    logs: {},              // programId -> { "w-s-e": { sets: [{kg, reps, done}], feedback, note } }
+    logsLoaded: {},        // programId -> true quando il registro è stato letto
+    logsLoading: {},
+    saveStatus: "",        // "" | pending | saving | saved | error
+    sessionDates: {},      // programId -> { "w-s": "AAAA-MM-GG" }
+    calMonth: "",          // "AAAA-MM" mostrato nel calendario
+    calDay: "",            // giorno selezionato nel calendario
+    calFrom: "home",
+    backupStatus: null,    // { text, kind }
+    backupPending: null,   // backup letto, in attesa di conferma
+    exportStatus: null     // { text, kind } sotto i pulsanti di export
+  };
+
+  var app = document.getElementById("app");
+  var fileInput = document.getElementById("pdf-input");
+  var backupInput = document.getElementById("backup-input");
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function currentProgram() { return state.programs.find(function (p) { return p.id === state.programId; }) || null; }
+  function sortedWeeks(p) { return p.weeks.slice().sort(function (a, b) { return a.number - b.number; }); }
+  function countSessions(p) { return p.weeks.reduce(function (n, w) { return n + w.sessions.length; }, 0); }
+  function countExercises(p) { return p.weeks.reduce(function (n, w) { return n + w.sessions.reduce(function (m, s) { return m + s.exercises.length; }, 0); }, 0); }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
+  /* ---------- Pezzi riusati ---------- */
+  function setsReps(e) {
+    if (e.sets && e.reps) return e.sets + " × " + e.reps;
+    if (e.sets) return e.sets + " serie";
+    if (e.reps) return e.reps + " rep";
+    return "";
+  }
+  function chips(e) {
+    var out = "";
+    if (e.percent) out += '<span class="chip chip-percent">' + esc(e.percent) + ' <small>1RM</small></span>';
+    if (e.load) out += '<span class="chip chip-load">' + esc(e.load) + '</span>';
+    if (e.rpe) out += '<span class="chip chip-rpe"><small>RPE</small> ' + esc(e.rpe) + '</span>';
+    return out;
+  }
+  function exerciseRow(e, attrs, status) {
+    var sr = setsReps(e), warn = (P.issues(e).length ? ICON.warn : "") + (status || "");
+    return '<button class="row" ' + attrs + '>' +
+      '<div class="row-main"><div class="row-title">' + esc(e.name || "Senza nome") + '</div>' +
+      '<div class="meta">' + (sr ? '<span class="setsreps">' + esc(sr) + '</span>' : "") + chips(e) +
+      (e.rest ? '<span class="rest">' + ICON.timer + esc(P.restDisplay(e.rest)) + '</span>' : "") + '</div></div>' +
+      warn + ICON.chev + '</button>';
+  }
+  function topbar(left, title, right) {
+    return '<header class="topbar"><div class="topbar-inner"><div class="left">' + (left || "") + '</div><h1>' + esc(title) +
+      '</h1><div class="right">' + (right || "") + '</div></div></header>';
+  }
+  function backBtn(action, label) {
+    return '<button class="link-btn" data-action="' + action + '">' + ICON.back + esc(label) + '</button>';
+  }
+  function storeNote() {
+    if (store.mode === "db") return '<p class="store-note">Le schede sono salvate nel tuo account Claude.</p>';
+    if (store.mode === "local") return '<p class="store-note">Le schede sono salvate in questo browser, su questo dispositivo.</p>';
+    return "";
+  }
+
+  /* ---------- Registro allenamento ---------- */
+  // Chiave stabile di un esercizio: indici così come sono salvati nella scheda.
+  function entryKey(wi, si, ei) { return wi + "-" + si + "-" + ei; }
+  function logsOf(pid) { return state.logs[pid] || (state.logs[pid] = {}); }
+  function getEntry(pid, key, e, create) {
+    var L = logsOf(pid), en = L[key];
+    if (!en && create) en = L[key] = { sets: [], feedback: e.feedback || "", note: e.note || "" };
+    return en || null;
+  }
+  function prescribedSets(e) { var n = parseInt(e.sets, 10); return n > 0 && n <= 30 ? n : 1; }
+  function rowCount(e, en) { return Math.max(prescribedSets(e), en && en.sets ? en.sets.length : 0); }
+  function setAt(en, i) { while (en.sets.length <= i) en.sets.push({ kg: "", reps: "", done: false }); return en.sets[i]; }
+  function doneCount(en) { return en && en.sets ? en.sets.filter(function (s) { return s && (s.done || s.missed); }).length : 0; }
+  function missedCount(en) { return en && en.sets ? en.sets.filter(function (s) { return s && s.missed; }).length : 0; }
+
+  // Riepilogo delle serie che finisce nella colonna Note del PDF, seguito dalle note scritte a mano.
+  function setsSummary(e, en) {
+    if (!en || !en.sets) return "";
+    var parts = [];
+    en.sets.forEach(function (s, i) {
+      if (!s || !(s.kg || s.reps || s.done || s.missed)) return;
+      var t = (i + 1) + ")";
+      if (s.kg) t += " " + fmtKg(s.kg) + " kg";
+      if (s.reps) t += " " + s.reps + " rep";
+      if (s.done) t += " ✓"; else if (s.missed) t += " ✗";
+      parts.push(t);
+    });
+    return parts.join(" · ");
+  }
+  function notesText(e, en) {
+    var sum = setsSummary(e, en), note = en ? (en.note || "").trim() : (e.note || "").trim();
+    return sum && note ? sum + " — " + note : sum || note;
+  }
+  function previewHtml(e, en) {
+    var t = notesText(e, en);
+    return '<b>Nelle note della scheda</b>' + (t ? '<span>' + esc(t) + '</span>' : 'Comparirà qui il riepilogo delle serie e quello che scrivi nelle note.');
+  }
+  function isComplete(e, en) { return doneCount(en) >= prescribedSets(e); }
+  function fmtKg(v) { return String(v).replace(".", ","); }
+  function normName(s) { return String(s || "").toLowerCase().replace(/\s+/g, " ").trim(); }
+
+  /* Date: "AAAA-MM-GG" nel fuso del telefono */
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function todayStr() { var d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function parseDate(str) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+  function fmtDate(str, long) {
+    var d = parseDate(str); if (!d) return "";
+    var opts = long ? { weekday: "long", day: "numeric", month: "long" } : { weekday: "short", day: "numeric", month: "short" };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+    return d.toLocaleDateString("it-IT", opts);
+  }
+  function sessionKey(wi, si) { return wi + "-" + si; }
+  function datesOf(pid) { return state.sessionDates[pid] || (state.sessionDates[pid] = {}); }
+  // La prima volta che registri qualcosa in una sessione, la data diventa oggi.
+  function touchSession(pid, wi, si) { var D = datesOf(pid), k = sessionKey(wi, si); if (!D[k]) D[k] = todayStr(); }
+
+  function hasActivity(en) { return !!(en && en.sets && en.sets.some(function (x) { return x && (x.kg || x.reps || x.done || x.missed); })); }
+
+  // L'ultima volta che hai fatto lo stesso esercizio (anche in un'altra sessione della stessa settimana),
+  // prima della sessione che stai guardando. Ordino per data di esecuzione, poi per settimana e sessione.
+  function lastTime(p, wi, si, e) {
+    var name = normName(e.name), L = logsOf(p.id), D = datesOf(p.id);
+    var curDate = D[sessionKey(wi, si)] || todayStr();
+    var curWeek = p.weeks[wi].number, curSess = p.weeks[wi].sessions[si].number, best = null;
+    function later(a, b) { for (var i = 0; i < a.length; i++) { if (a[i] > b[i]) return true; if (a[i] < b[i]) return false; } return false; }
+    p.weeks.forEach(function (w, wj) {
+      w.sessions.forEach(function (s, sj) {
+        if (wj === wi && sj === si) return;
+        var d = D[sessionKey(wj, sj)] || "";
+        var before = d ? d <= curDate : (w.number < curWeek || (w.number === curWeek && s.number < curSess));
+        if (!before) return;
+        s.exercises.forEach(function (o, ej) {
+          if (normName(o.name) !== name) return;
+          var en = L[entryKey(wj, sj, ej)];
+          if (!hasActivity(en)) return;
+          var rank = [d, w.number, s.number];
+          if (!best || later(rank, best.rank)) best = { rank: rank, date: d, week: w.number, session: s.number, entry: en, exercise: o };
+        });
+      });
+    });
+    return best;
+  }
+
+  // Recap dell'ultima volta: per ogni serie peso × rep (quelle fatte, o le prescritte) e ✓/✗.
+  function lastTimeHtml(last) {
+    var o = last.exercise, en = last.entry;
+    var presc = [setsReps(o), o.percent, o.load, o.rpe ? "RPE " + o.rpe : ""].filter(Boolean).join(" · ");
+    var items = "";
+    en.sets.forEach(function (x, i) {
+      if (!x || !(x.kg || x.reps || x.done || x.missed)) return;
+      var reps = x.reps || o.reps;
+      var body = x.kg ? esc(fmtKg(x.kg)) + '<small>kg</small>' + (reps ? ' × ' + esc(reps) : '') : (reps ? esc(reps) + '<small>rep</small>' : '');
+      var mark = x.done ? ' <span class="ok" aria-label="riuscita">✓</span>' : x.missed ? ' <span class="ko" aria-label="sbagliata">✗</span>' : '';
+      items += '<li' + (x.missed ? ' class="ko-row"' : '') + '><small>' + (i + 1) + '</small>' + body + mark + '</li>';
+    });
+    var notes = "";
+    if ((en.feedback || "").trim()) notes += '<p class="lt-note"><strong>Feedback:</strong> ' + esc(en.feedback.trim()) + '</p>';
+    if ((en.note || "").trim()) notes += '<p class="lt-note"><strong>Note:</strong> ' + esc(en.note.trim()) + '</p>';
+    return '<div class="last-time"><div class="lt-head"><b>L\'ultima volta' + (last.date ? ' · ' + esc(fmtDate(last.date)) : '') + '</b>Settimana ' + last.week + ', sessione ' + last.session +
+      (presc ? ' · prescritto ' + esc(presc) : '') + '</div>' +
+      (items ? '<ol class="lt-sets">' + items + '</ol>' : '') + notes + '</div>';
+  }
+
+  function kgPlaceholder(e, en, i, last) {
+    if (en) for (var j = Math.min(i, en.sets.length) - 1; j >= 0; j--) if (en.sets[j] && en.sets[j].kg) return en.sets[j].kg;
+    if (last && last.entry.sets[i] && last.entry.sets[i].kg) return last.entry.sets[i].kg;
+    var m = /^(\d+(?:[.,]\d+)?)\s*kg$/i.exec((e.load || "").trim());
+    return m ? m[1] : "";
+  }
+
+  function logBlock(p, wi, si, ei) {
+    var e = p.weeks[wi].sessions[si].exercises[ei];
+    var key = entryKey(wi, si, ei);
+    var attrs = 'class="log" data-w="' + wi + '" data-s="' + si + '" data-e="' + ei + '"';
+    if (!state.logsLoaded[p.id]) {
+      return '<section ' + attrs + '><div class="log-loading"><div class="spinner"></div>Carico il tuo registro…</div></section>';
+    }
+    var en = getEntry(p.id, key, e, false);
+    var last = lastTime(p, wi, si, e);
+    var total = prescribedSets(e), done = doneCount(en), missed = missedCount(en);
+    var h = '<section ' + attrs + ' aria-label="Il tuo allenamento">';
+    h += '<div class="log-head"><h3>Il tuo allenamento</h3><span class="log-count' + (done >= total ? " complete" : "") + '">' + done + '/' + total + ' serie' + (missed ? ' <span class="miss-count">· ' + missed + (missed === 1 ? ' sbagliata' : ' sbagliate') + '</span>' : '') + '</span></div>';
+    if (last) {
+      h += lastTimeHtml(last);
+    }
+    var rows = rowCount(e, en);
+    for (var i = 0; i < rows; i++) {
+      var s = en && en.sets[i] ? en.sets[i] : { kg: "", reps: "", done: false, missed: false };
+      var extra = i >= total;
+      var idBase = "log-" + key + "-" + i;
+      h += '<div class="set-row' + (s.done ? " done" : s.missed ? " missed" : "") + '" data-set="' + i + '">' +
+        (extra
+          ? '<button class="set-n" data-action="remove-set" aria-label="Rimuovi serie ' + (i + 1) + '">' + ICON.minus + '</button>'
+          : '<span class="set-n" aria-hidden="true">' + (i + 1) + '</span>') +
+        '<label class="set-field" for="' + idBase + '-kg"><input id="' + idBase + '-kg" data-log-field="kg" inputmode="decimal" autocomplete="off" aria-label="Serie ' + (i + 1) + ', chili" placeholder="' + esc(fmtKg(kgPlaceholder(e, en, i, last))) + '" value="' + esc(s.kg ? fmtKg(s.kg) : "") + '"><span>kg</span></label>' +
+        '<label class="set-field" for="' + idBase + '-reps"><input id="' + idBase + '-reps" data-log-field="reps" inputmode="numeric" autocomplete="off" aria-label="Serie ' + (i + 1) + ', rep fatte" placeholder="' + esc(e.reps) + '" value="' + esc(s.reps) + '"><span>rep</span></label>' +
+        '<button class="set-check" data-action="toggle-set" aria-pressed="' + !!s.done + '" aria-label="Serie ' + (i + 1) + ' riuscita">' + ICON.check + '</button>' +
+        '<button class="set-miss" data-action="miss-set" aria-pressed="' + !!s.missed + '" aria-label="Serie ' + (i + 1) + ' sbagliata">' + ICON.cross + '</button>' +
+        '</div>';
+    }
+    h += '<button class="link-btn add-set" data-action="add-set">' + ICON.plus + 'Aggiungi serie</button>';
+    h += '<div class="text-field"><label for="log-' + key + '-feedback">Feedback</label><textarea id="log-' + key + '-feedback" data-log-field="feedback" rows="2" placeholder="Come è andata, sensazioni, tecnica">' + esc(en ? en.feedback : e.feedback) + '</textarea></div>';
+    h += '<div class="text-field"><label for="log-' + key + '-note">Note</label><textarea id="log-' + key + '-note" data-log-field="note" rows="2" placeholder="Altro da segnare">' + esc(en ? en.note : e.note) + '</textarea></div>';
+    h += '<div class="notes-preview" aria-live="polite">' + previewHtml(e, en) + '</div>';
+    return h + '</section>';
+  }
+
+  function sectionContext(section) {
+    var p = currentProgram(); if (!p || !section) return null;
+    var wi = Number(section.dataset.w), si = Number(section.dataset.s), ei = Number(section.dataset.e);
+    var e = p.weeks[wi].sessions[si].exercises[ei];
+    return { p: p, wi: wi, si: si, ei: ei, e: e, key: entryKey(wi, si, ei) };
+  }
+
+  function rerenderLog(section, focusSelector) {
+    var c = sectionContext(section); if (!c) return;
+    section.outerHTML = logBlock(c.p, c.wi, c.si, c.ei);
+    if (focusSelector) {
+      var fresh = app.querySelector('.log[data-w="' + c.wi + '"][data-s="' + c.si + '"][data-e="' + c.ei + '"]');
+      var el = fresh && fresh.querySelector(focusSelector);
+      if (el) el.focus({ preventScroll: true });
+    }
+    updatePagerChrome();
+  }
+
+  // Salvataggio automatico: una scrittura alla volta, poco dopo l'ultima modifica.
+  var saveQueue = {};
+  function setSaveStatus(s) {
+    state.saveStatus = s;
+    var el = document.getElementById("save-status");
+    if (!el) return;
+    var text = { pending: "Modifiche…", saving: "Salvo…", saved: "Salvato", error: "Non salvato" }[s] || "";
+    el.textContent = text;
+    el.classList.toggle("error", s === "error");
+  }
+  function scheduleSave(pid) {
+    var q = saveQueue[pid] || (saveQueue[pid] = {});
+    q.dirty = true; setSaveStatus("pending");
+    clearTimeout(q.timer);
+    q.timer = setTimeout(function () { flushSave(pid); }, 700);
+  }
+  function flushSave(pid) {
+    var q = saveQueue[pid];
+    if (!q || !q.dirty || q.saving) return;
+    clearTimeout(q.timer);
+    q.dirty = false; q.saving = true; setSaveStatus("saving");
+    store.saveLogs(pid, state.logs[pid] || {}, state.sessionDates[pid] || {}).then(function () {
+      q.saving = false;
+      if (q.dirty) flushSave(pid); else setSaveStatus("saved");
+    }).catch(function () {
+      q.saving = false; q.dirty = true; setSaveStatus("error");
+      q.timer = setTimeout(function () { flushSave(pid); }, 4000);
+    });
+  }
+  function flushAll() { Object.keys(saveQueue).forEach(flushSave); }
+
+  function loadLogs(pid) {
+    if (state.logsLoaded[pid] || state.logsLoading[pid]) return;
+    state.logsLoading[pid] = true;
+    function done() {
+      state.logsLoaded[pid] = true; delete state.logsLoading[pid];
+      if (state.programId === pid || state.view === "calendar") render();
+    }
+    store.getLogs(pid).then(function (r) {
+      state.logs[pid] = (r && r.entries) || {};
+      state.sessionDates[pid] = (r && r.sessions) || {};
+      done();
+    }).catch(function () {
+      state.logs[pid] = {}; state.sessionDates[pid] = {};
+      done();
+    });
+  }
+
+  function exerciseStatus(p, wi, si, ei) {
+    if (!state.logsLoaded[p.id]) return "";
+    var e = p.weeks[wi].sessions[si].exercises[ei];
+    var en = getEntry(p.id, entryKey(wi, si, ei), e, false);
+    var d = doneCount(en);
+    if (!d) return "";
+    return isComplete(e, en) ? ICON.checkCircle : '<span class="status-badge">' + d + '/' + prescribedSets(e) + '</span>';
+  }
+
+  /* ---------- Viste ---------- */
+  function viewHome() {
+    var h = topbar(state.programs.length ? '<button class="link-btn" data-action="open-calendar">' + ICON.cal + 'Calendario</button>' : "", "Scheda", state.programs.length ? '<button class="link-btn" data-action="import">' + ICON.plus + 'Importa</button>' : "");
+    h += "<main>";
+    if (state.error) h += '<div class="banner banner-error" role="alert"><strong>Importazione non riuscita.</strong> ' + esc(state.error) + '</div>';
+    if (state.busy) h += '<div class="busy"><div class="spinner"></div>Leggo il PDF…</div>';
+
+    if (state.loading) {
+      h += '<div class="busy"><div class="spinner"></div>Carico le tue schede…</div>';
+    } else if (!state.programs.length) {
+      h += '<section class="hero"><h2>La tua programmazione, esercizio per esercizio</h2>' +
+        '<p>Importa il PDF che ti manda il coach: settimane, sessioni, percentuali, carichi e tip tecniche finiscono qui, pronti da consultare in palestra.</p></section>' +
+        '<div class="card steps">' +
+        '<div class="step"><b>1</b><span><strong>Importa il PDF</strong>Dal pulsante qui sotto, scegliendolo da File.</span></div>' +
+        '<div class="step"><b>2</b><span><strong>Controlla</strong>Vedi cosa è stato letto e correggi eventuali refusi.</span></div>' +
+        '<div class="step"><b>3</b><span><strong>Allenati</strong>Apri la sessione e scorri un esercizio alla volta.</span></div>' +
+        '</div>' +
+        '<div class="import-zone"><button class="btn btn-primary" data-action="import">' + ICON.plus + 'Importa PDF della scheda</button></div>';
+    } else {
+      var list = state.programs.slice().sort(function (a, b) { return (b.importedAt || "").localeCompare(a.importedAt || ""); });
+      h += '<div><p class="section-label">Le tue schede</p><div class="list">';
+      list.forEach(function (p) {
+        var d = p.importedAt ? new Date(p.importedAt).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : "";
+        h += '<button class="row" data-action="open-program" data-id="' + esc(p.id) + '"><div class="row-main">' +
+          '<div class="program-title">' + esc(p.title) + '</div>' +
+          '<div class="row-sub">' + plural(p.weeks.length, "settimana", "settimane") + ' · ' + plural(countSessions(p), "sessione", "sessioni") + ' · ' + plural(countExercises(p), "esercizio", "esercizi") + '</div>' +
+          (d ? '<div class="row-sub">Importata il ' + esc(d) + '</div>' : "") +
+          '</div>' + ICON.chev + '</button>';
+      });
+      h += '</div></div>';
+    }
+    if (!state.loading && state.programs.length) h += backupCard();
+    if (!state.loading && !state.programs.length) {
+      h += '<button class="link-btn" style="align-self:center" data-action="backup-import">Ripristina da un backup</button>';
+      if (state.backupPending || state.backupStatus) h += backupCard();
+    }
+    h += storeNote() + "</main>";
+    return h;
+  }
+
+  function viewReview() {
+    var p = state.pending;
+    var h = topbar('<button class="link-btn" data-action="cancel-import">Annulla</button>', "Controlla", '<button class="link-btn" data-action="save-import"><strong>Salva</strong></button>');
+    h += "<main>";
+    if (state.error) h += '<div class="banner banner-error" role="alert">' + esc(state.error) + '</div>';
+    h += '<div class="list"><div class="field"><label for="review-title">Nome della scheda</label>' +
+      '<input id="review-title" data-bind="title" value="' + esc(p.title) + '"></div></div>';
+    h += '<div class="card stats">' +
+      '<div class="stat"><b>' + p.weeks.length + '</b><span>Settimane</span></div>' +
+      '<div class="stat"><b>' + countSessions(p) + '</b><span>Sessioni</span></div>' +
+      '<div class="stat"><b>' + countExercises(p) + '</b><span>Esercizi</span></div></div>';
+
+    if (state.flagged.length) {
+      h += '<div><p class="section-label" style="color:var(--warn)">Da controllare (' + state.flagged.length + ')</p><div class="list">';
+      state.flagged.forEach(function (path) {
+        var w = p.weeks[path[0]], s = w.sessions[path[1]], e = s.exercises[path[2]];
+        var iss = P.issues(e);
+        h += '<button class="row" data-action="edit" data-path="' + path.join(",") + '"><div class="row-main">' +
+          '<span class="flag-where">Settimana ' + w.number + ' · Sessione ' + s.number + '</span>' +
+          '<div class="row-title">' + esc(e.name) + '</div>' +
+          '<div class="meta"><span class="setsreps">' + esc(setsReps(e)) + '</span>' + chips(e) + '</div>' +
+          (iss.length ? '<div class="row-sub" style="color:var(--warn)">' + esc(iss[0]) + '</div>' : '<div class="row-sub">Corretto</div>') +
+          '</div>' + ICON.chev + '</button>';
+      });
+      h += '</div><p class="store-note" style="text-align:left;margin:8px 4px 0">Valori che sembrano refusi della scheda. Puoi correggerli o lasciarli così.</p></div>';
+    }
+
+    h += '<div class="cards">';
+    p.weeks.forEach(function (w, wi) {
+      var n = w.sessions.reduce(function (m, s) { return m + s.exercises.length; }, 0);
+      h += '<details class="week"' + (wi === 0 ? " open" : "") + '><summary><span>Settimana ' + w.number + '</span><span class="row-sub">' + plural(w.sessions.length, "sessione", "sessioni") + ' · ' + n + ' esercizi ' + ICON.chev + '</span></summary>';
+      w.sessions.forEach(function (s, si) {
+        h += '<div class="session-head">Sessione ' + s.number + '</div><div>';
+        s.exercises.forEach(function (e, ei) { h += exerciseRow(e, 'data-action="edit" data-path="' + wi + "," + si + "," + ei + '"'); });
+        h += '</div>';
+      });
+      h += '</details>';
+    });
+    h += '</div>';
+    h += '<button class="btn btn-primary" data-action="save-import">Salva la scheda</button>';
+    h += "</main>";
+    if (state.editing) h += viewEditSheet();
+    return h;
+  }
+
+  function viewEditSheet() {
+    var path = state.editing, e = state.pending.weeks[path[0]].sessions[path[1]].exercises[path[2]];
+    var iss = P.issues(e);
+    function f(key, label, mode) {
+      return '<div class="field"><label for="edit-' + key + '">' + label + '</label><input id="edit-' + key + '" data-edit="' + key + '" value="' + esc(e[key]) + '"' + (mode ? ' inputmode="' + mode + '"' : "") + '></div>';
+    }
+    return '<div class="sheet-backdrop" data-action="close-edit"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">' +
+      '<div class="sheet-head"><h3 id="sheet-title">Modifica esercizio</h3><button class="btn btn-primary btn-small" data-action="close-edit">Fatto</button></div>' +
+      '<div id="sheet-issues">' + (iss.length ? '<div class="issues">' + iss.map(function (i) { return '<div>' + ICON.warn + '<span>' + esc(i) + '</span></div>'; }).join("") + '</div>' : "") + '</div>' +
+      '<div class="list"><div class="field"><label for="edit-name">Esercizio</label><textarea id="edit-name" data-edit="name" rows="2">' + esc(e.name) + '</textarea></div></div>' +
+      '<div><p class="section-label">Prescrizione</p><div class="list field-grid">' +
+      f("sets", "Serie", "numeric") + f("reps", "Ripetizioni") + f("percent", "% 1RM") + f("load", "Carico") + f("rpe", "RPE") + f("rest", "Recupero") +
+      '</div></div>' +
+      '<div class="list"><div class="field"><label for="edit-tip">Tip tecniche</label><textarea id="edit-tip" data-edit="tip" rows="3">' + esc(e.tip) + '</textarea></div></div>' +
+      '</div></div>';
+  }
+
+  function viewProgram() {
+    var p = currentProgram();
+    if (!p) { state.view = "home"; return viewHome(); }
+    var weeks = sortedWeeks(p);
+    if (state.week >= weeks.length) state.week = 0;
+    var w = weeks[state.week];
+    var h = topbar(backBtn("go-home", "Schede"), p.title, '<button class="link-btn" data-action="open-calendar" aria-label="Calendario">' + ICON.cal + '</button>');
+    h += "<main>";
+    if (weeks.length > 1) {
+      h += '<div class="segmented" role="group" aria-label="Settimana">';
+      weeks.forEach(function (wk, i) {
+        h += '<button data-action="pick-week" data-i="' + i + '" aria-pressed="' + (i === state.week) + '">' + (weeks.length <= 5 ? "Sett. " : "") + wk.number + '</button>';
+      });
+      h += '</div>';
+    }
+    h += '<div><p class="section-label">Settimana ' + w.number + '</p><div class="cards">';
+    var wi = p.weeks.indexOf(w);
+    w.sessions.slice().sort(function (a, b) { return a.number - b.number; }).forEach(function (s) {
+      var idx = w.sessions.indexOf(s);
+      var completed = 0, started = false;
+      if (state.logsLoaded[p.id]) {
+        s.exercises.forEach(function (e, ei) {
+          var en = getEntry(p.id, entryKey(wi, idx, ei), e, false);
+          if (doneCount(en)) started = true;
+          if (isComplete(e, en)) completed++;
+        });
+      }
+      var allDone = s.exercises.length && completed === s.exercises.length;
+      h += '<button class="card session-card" data-action="open-session" data-i="' + idx + '"><div class="session-num">' + s.number + '</div>' +
+        '<div class="session-body"><div class="row-title">Sessione ' + s.number + ' <span class="row-sub">· ' + plural(s.exercises.length, "esercizio", "esercizi") + '</span></div>' +
+        '<div class="names">' + esc(s.exercises.map(function (e) { return e.name; }).join(" · ")) + '</div>' +
+        (function () {
+          var d = state.logsLoaded[p.id] ? datesOf(p.id)[sessionKey(wi, idx)] : "";
+          var parts = [];
+          if (d) parts.push(fmtDate(d));
+          if (started) parts.push(allDone ? "completata" : completed + " di " + s.exercises.length + " esercizi completati");
+          return parts.length ? '<div class="session-progress">' + esc(parts.join(" · ").replace(/^./, function (c) { return c.toUpperCase(); })) + '</div>' : "";
+        })() +
+        '</div>' + (allDone ? ICON.checkCircle : ICON.chev) + '</button>';
+    });
+    h += '</div></div>';
+    h += '<div class="card export-card"><div><div class="row-title">PDF per il coach</div>' +
+      '<div class="row-sub">La tabella della scheda con Feedback e Note compilati: pesi, rep, serie riuscite (✓) e sbagliate (✗) e le tue note.</div></div>' +
+      '<div class="actions"><button class="btn btn-primary" data-action="export-week">' + ICON.download + 'Esporta settimana ' + w.number + '</button>' +
+      (weeks.length > 1 ? '<button class="btn btn-ghost btn-small" data-action="export-all">Tutta la scheda</button>' : '') + '</div>' +
+      (state.exportStatus ? '<p class="export-status ' + state.exportStatus.kind + '" id="export-status" role="status">' + esc(state.exportStatus.text) + '</p>' : '<p class="export-status" id="export-status" role="status"></p>') +
+      '</div>';
+    h += '<div class="danger-zone">';
+    if (state.confirmDelete) {
+      h += '<p>Eliminare "' + esc(p.title) + '"? Non si può annullare.</p><div class="actions">' +
+        '<button class="btn btn-ghost btn-small" data-action="cancel-delete">Annulla</button>' +
+        '<button class="btn btn-danger btn-small" data-action="confirm-delete">Elimina</button></div>';
+    } else {
+      h += '<button class="btn btn-ghost btn-small" data-action="ask-delete">Elimina scheda</button>';
+    }
+    h += '</div></main>';
+    return h;
+  }
+
+  function currentSession() {
+    var p = currentProgram(); if (!p) return null;
+    var w = sortedWeeks(p)[state.week]; if (!w) return null;
+    return { week: w, session: w.sessions[state.session] };
+  }
+
+  function blocks(exercises) {
+    var out = [], prev;
+    exercises.forEach(function (e, i) {
+      var g = e.supersetGroup == null ? null : e.supersetGroup;
+      if (out.length && g === prev) out[out.length - 1].push(i); else out.push([i]);
+      prev = g;
+    });
+    return out;
+  }
+
+  function viewSession() {
+    var cs = currentSession();
+    if (!cs || !cs.session) { state.view = "program"; return viewProgram(); }
+    var ex = cs.session.exercises, p = currentProgram(), wi = p.weeks.indexOf(cs.week);
+    var h = topbar(backBtn("go-program", "Sett. " + cs.week.number), "Sessione " + cs.session.number,
+      ex.length ? '<button class="btn btn-primary btn-small" data-action="open-exercise" data-i="0">' + ICON.play + 'Inizia</button>' : "");
+    h += "<main>";
+    if (state.logsLoaded[p.id]) {
+      var date = datesOf(p.id)[sessionKey(wi, state.session)] || "";
+      h += '<div class="card session-date"><div><div class="row-title">' + (date ? "Svolta " + esc(fmtDate(date, true)) : "Non ancora svolta") + '</div>' +
+        '<div class="row-sub">' + (date ? "Se l'hai fatta un altro giorno, cambia la data." : "La data si segna da sola quando registri la prima serie.") + '</div></div>' +
+        '<input type="date" id="session-date" aria-label="Data della sessione" value="' + esc(date) + '"></div>';
+    }
+    blocks(ex).forEach(function (b) {
+      var ss = ex[b[0]].supersetGroup != null;
+      h += '<div>' + (ss ? '<p class="section-label"><span class="ss-tag">' + ICON.ss + 'Superset</span></p>' : "") +
+        '<div class="list' + (ss ? " ss-group" : "") + '">';
+      b.forEach(function (i) { h += exerciseRow(ex[i], 'data-action="open-exercise" data-i="' + i + '"', exerciseStatus(p, wi, state.session, i)); });
+      h += '</div></div>';
+    });
+    h += "</main>";
+    return h;
+  }
+
+  function exerciseCard(ex, i, p, wi, si) {
+    var e = ex[i], iss = P.issues(e), h = '<article class="card ex-card" aria-roledescription="esercizio" aria-label="' + esc(e.name) + '">';
+    var partners = e.supersetGroup == null ? [] : ex.filter(function (o, j) { return j !== i && o.supersetGroup === e.supersetGroup; }).map(function (o) { return o.name; });
+    h += '<div style="display:flex;flex-direction:column;gap:6px">' + (partners.length ? '<span class="ss-tag">' + ICON.ss + 'Superset</span>' : "") +
+      '<h2 class="ex-name">' + esc(e.name) + '</h2>' +
+      (partners.length ? '<p class="ex-partners">In alternanza con: ' + esc(partners.join(", ")) + '</p>' : "") + '</div>';
+    if (iss.length) h += '<div class="issues">' + iss.map(function (t) { return '<div>' + ICON.warn + '<span>' + esc(t) + '</span></div>'; }).join("") + '</div>';
+    if (e.sets || e.reps) {
+      h += '<div><div class="ex-big">' + (e.sets && e.reps ? esc(e.sets) + '<span>×</span>' + esc(e.reps) : esc(e.sets || e.reps)) + '</div>' +
+        '<div class="ex-big-caption">' + (e.sets && e.reps ? "Serie × ripetizioni" : e.sets ? "Serie" : "Ripetizioni") + '</div></div>';
+    }
+    var c = chips(e);
+    if (c) h += '<div class="chips-lg">' + c + '</div>';
+    var facts = "";
+    if (e.rest) {
+      var secs = restSeconds(e.rest);
+      facts += '<div class="fact"><span>Recupero</span><div class="fact-row"><b>' + esc(P.restDisplay(e.rest)) + '</b>' +
+        (secs ? '<button class="fact-btn" data-action="timer-ex" data-i="' + i + '" aria-label="Timer di recupero ' + esc(P.restDisplay(e.rest)) + '">' + ICON.timer + 'Timer</button>' : '') + '</div></div>';
+    }
+    if (e.volume) facts += '<div class="fact"><span>Volume</span><b>' + esc(e.volume) + '</b></div>';
+    if (facts) h += '<div class="facts">' + facts + '</div>';
+    if (e.tip) h += '<div class="note-card note-tip"><h4>' + ICON.tip + 'Tip del coach</h4><p>' + esc(e.tip) + '</p></div>';
+    h += logBlock(p, wi, si, i);
+    return h + '</article>';
+  }
+
+  function viewExercise() {
+    var cs = currentSession();
+    if (!cs || !cs.session) { state.view = "program"; return viewProgram(); }
+    var ex = cs.session.exercises, i = Math.min(state.exercise, ex.length - 1);
+    var p = currentProgram(), wi = p.weeks.indexOf(cs.week);
+    var status = { saving: "Salvo…", saved: "Salvato", error: "Non salvato", pending: "Modifiche…" }[state.saveStatus] || "";
+    var h = topbar(backBtn("go-session", "Sessione " + cs.session.number), (i + 1) + " di " + ex.length,
+      '<span id="save-status" class="save-status' + (state.saveStatus === "error" ? " error" : "") + '" aria-live="polite">' + status + '</span>');
+    h += '<main><div class="pager" id="pager" aria-label="Esercizi della sessione">';
+    ex.forEach(function (_, j) { h += exerciseCard(ex, j, p, wi, state.session); });
+    h += '</div></main>';
+    h += '<nav class="pager-bar" aria-label="Scorri esercizi"><div class="pager-bar-inner">' +
+      '<button class="round-btn" data-action="prev-ex" aria-label="Esercizio precedente"' + (i === 0 ? " disabled" : "") + '>' + ICON.prev + '</button>' +
+      '<div class="next-label" id="next-label">' + nextLabel(ex, i) + '</div>' +
+      '<button class="round-btn primary" data-action="next-ex" aria-label="Esercizio successivo"' + (i >= ex.length - 1 ? " disabled" : "") + '>' + ICON.next + '</button>' +
+      '</div></nav>';
+    return h;
+  }
+
+  function nextLabel(ex, i) {
+    var p = currentProgram(), cs = currentSession();
+    var wi = p && cs ? p.weeks.indexOf(cs.week) : -1;
+    var dots = '<div class="dots" aria-hidden="true">' + ex.map(function (e, j) {
+      var en = wi >= 0 ? getEntry(p.id, entryKey(wi, state.session, j), e, false) : null;
+      var cls = [];
+      if (en && isComplete(e, en)) cls.push("done");
+      if (j === i) cls.push("on");
+      return '<i' + (cls.length ? ' class="' + cls.join(" ") + '"' : "") + '></i>';
+    }).join("") + '</div>';
+    return (i + 1 < ex.length ? 'Poi<b>' + esc(ex[i + 1].name) + '</b>' : '<b>Ultimo esercizio</b>') + dots;
+  }
+
+  /* ---------- Backup ---------- */
+  function backupCard() {
+    var h = '<div class="card backup-card"><div><div class="row-title">Backup</div><div class="row-sub">' +
+      (store.mode === "local"
+        ? "Le schede e il registro sono salvati solo in questo browser. Scarica ogni tanto un backup: ti serve per non perdere niente o per passare a un altro telefono."
+        : "Un file con tutte le schede, i pesi, le note e le date. Puoi ripristinarlo qui o nella versione sito dell'app.") +
+      '</div></div>';
+    if (state.backupPending) {
+      var bp = state.backupPending;
+      h += '<div class="backup-confirm"><div>Il backup del ' + esc(bp.date) + ' contiene ' + plural(bp.programs.length, "scheda", "schede") +
+        (bp.replace ? " (" + bp.replace + " già " + (bp.replace === 1 ? "presente: verrà sostituita" : "presenti: verranno sostituite") + " con la versione del backup, registro compreso)" : "") +
+        '.</div><div class="actions"><button class="btn btn-ghost btn-small" data-action="backup-cancel">Annulla</button>' +
+        '<button class="btn btn-primary btn-small" data-action="backup-restore">Ripristina</button></div></div>';
+    } else {
+      h += '<div class="actions"><button class="btn btn-ghost btn-small" data-action="backup-export">' + ICON.download + 'Scarica backup</button>' +
+        '<button class="btn btn-ghost btn-small" data-action="backup-import">Ripristina backup</button></div>';
+    }
+    h += '<p class="export-status ' + (state.backupStatus ? state.backupStatus.kind : "") + '" id="backup-status" role="status">' + (state.backupStatus ? esc(state.backupStatus.text) : "") + '</p>';
+    return h + '</div>';
+  }
+  function setBackupStatus(text, kind) {
+    state.backupStatus = text ? { text: text, kind: kind || "" } : null;
+    var el = document.getElementById("backup-status");
+    if (el) { el.textContent = text || ""; el.className = "export-status " + (kind || ""); }
+  }
+
+  function exportBackup() {
+    flushAll();
+    var programs = state.programs.slice();
+    Promise.all(programs.map(function (p) {
+      return state.logsLoaded[p.id]
+        ? Promise.resolve({ entries: state.logs[p.id] || {}, sessions: state.sessionDates[p.id] || {} })
+        : store.getLogs(p.id);
+    })).then(function (logs) {
+      var data = {
+        app: "scheda-pesistica", version: 1, exportedAt: new Date().toISOString(),
+        programs: programs.map(function (p, i) {
+          return { id: p.id, title: p.title, fileName: p.fileName, importedAt: p.importedAt, weeks: p.weeks,
+            log: { entries: logs[i].entries || {}, sessions: logs[i].sessions || {} } };
+        })
+      };
+      var name = "Scheda backup " + todayStr() + ".json";
+      var blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      setBackupStatus("Backup pronto, conferma il salvataggio…");
+      return getDownloads().then(function (dl) {
+        if (!dl) { saveBlob(blob, name, setBackupStatus); return; }
+        return dl.save({ filename: name, data: blob }).then(function () {
+          setBackupStatus("Backup salvato: " + name, "ok");
+        }).catch(function (err) {
+          var code = err && err.code;
+          if (code === "declined") setBackupStatus("Salvataggio annullato.");
+          else if (code === "unavailable" || code === "not_granted") saveBlob(blob, name, setBackupStatus);
+          else setBackupStatus("Non sono riuscita a salvare il backup" + (err && err.message ? " (" + err.message + ")" : "") + ".", "error");
+        });
+      });
+    }).catch(function () { setBackupStatus("Non sono riuscita a leggere il registro per il backup. Riprova.", "error"); });
+  }
+
+  backupInput.addEventListener("change", function () {
+    var file = backupInput.files && backupInput.files[0];
+    backupInput.value = "";
+    if (!file) return;
+    file.text().then(function (text) {
+      var data = JSON.parse(text);
+      if (!data || data.app !== "scheda-pesistica" || !Array.isArray(data.programs)) throw new Error("formato");
+      var valid = data.programs.filter(function (p) { return p && typeof p.id === "string" && /^prog-[\w-]+$/.test(p.id) && Array.isArray(p.weeks); });
+      if (!valid.length) throw new Error("vuoto");
+      var replace = valid.filter(function (p) { return state.programs.some(function (x) { return x.id === p.id; }); }).length;
+      state.backupPending = { programs: valid, replace: replace, date: data.exportedAt ? new Date(data.exportedAt).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }) : "?" };
+      state.backupStatus = null;
+      render();
+    }).catch(function () {
+      setBackupStatus("Questo file non è un backup di Scheda Pesistica.", "error");
+      if (!document.getElementById("backup-status")) render();
+    });
+  });
+
+  function restoreBackup() {
+    var bp = state.backupPending; if (!bp) return;
+    state.backupPending = null;
+    setBackupStatus("Ripristino in corso…");
+    var chain = Promise.resolve();
+    bp.programs.forEach(function (p) {
+      chain = chain.then(function () {
+        var program = { id: p.id, title: p.title || "Scheda", fileName: p.fileName || "", importedAt: p.importedAt || new Date().toISOString(), weeks: p.weeks };
+        var log = p.log || {};
+        return store.save(program).then(function () {
+          return store.saveLogs(p.id, log.entries || {}, log.sessions || {});
+        }).then(function () {
+          state.programs = state.programs.filter(function (x) { return x.id !== p.id; }).concat([program]);
+          state.logs[p.id] = log.entries || {};
+          state.sessionDates[p.id] = log.sessions || {};
+          state.logsLoaded[p.id] = true;
+        });
+      });
+    });
+    chain.then(function () {
+      state.backupStatus = { text: (bp.programs.length === 1 ? "Ripristinata 1 scheda." : "Ripristinate " + bp.programs.length + " schede."), kind: "ok" };
+      render();
+    }).catch(function (err) {
+      state.backupStatus = { text: "Ripristino interrotto: " + ((err && err.message) || "errore di salvataggio") + ".", kind: "error" };
+      render();
+    });
+  }
+
+  /* ---------- Export PDF ---------- */
+  var downloadsPromise = null;
+  function getDownloads() {
+    if (!downloadsPromise) {
+      var c = window.claude;
+      downloadsPromise = c && typeof c.use === "function" ? c.use("downloads").catch(function () { return null; }) : Promise.resolve(null);
+    }
+    return downloadsPromise;
+  }
+  function setExportStatus(text, kind) {
+    state.exportStatus = text ? { text: text, kind: kind || "" } : null;
+    var el = document.getElementById("export-status");
+    if (el) { el.textContent = text || ""; el.className = "export-status " + (kind || ""); }
+  }
+  function safeName(t) { return String(t || "Scheda").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "Scheda"; }
+
+  function exportPdf(all) {
+    var p = currentProgram(); if (!p) return;
+    if (!window.jspdf || !window.jspdf.jsPDF) { setExportStatus("Il generatore di PDF non si è caricato. Controlla la connessione e riapri la pagina.", "error"); return; }
+    if (!state.logsLoaded[p.id]) { setExportStatus("Sto ancora caricando il tuo registro, riprova tra un attimo.", "error"); return; }
+    flushAll();
+    var sorted = sortedWeeks(p);
+    var weeks = (all ? sorted : [sorted[state.week]]).map(function (w) { return p.weeks.indexOf(w); });
+    var D = datesOf(p.id);
+    var doc;
+    try {
+      doc = SchedaExport.build(window.jspdf.jsPDF, SCHEDA_FONTS, {
+        program: p, weeks: weeks, title: p.title,
+        subtitle: p.title + " · esportata il " + new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }),
+        dateFor: function (wi, si) { var d = D[sessionKey(wi, si)]; return d ? fmtDate(d, true) + (parseDate(d).getFullYear() === new Date().getFullYear() ? " " + parseDate(d).getFullYear() : "") : ""; },
+        feedbackFor: function (wi, si, ei, e) { var en = getEntry(p.id, entryKey(wi, si, ei), e, false); return en ? en.feedback : e.feedback; },
+        noteFor: function (wi, si, ei, e) { return notesText(e, getEntry(p.id, entryKey(wi, si, ei), e, false)); }
+      });
+    } catch (err) {
+      setExportStatus("Non sono riuscita a creare il PDF: " + ((err && err.message) || "errore sconosciuto") + ".", "error");
+      return;
+    }
+    var blob = doc.output("blob");
+    var name = safeName(p.title) + (all ? "" : " - Settimana " + sorted[state.week].number) + ".pdf";
+    setExportStatus("PDF pronto, conferma il salvataggio…");
+    getDownloads().then(function (dl) {
+      if (!dl) return fallbackDownload(blob, name);
+      return dl.save({ filename: name, data: blob }).then(function (r) {
+        setExportStatus(r && r.status === "delivered" ? "PDF inviato." : "PDF salvato: " + name, "ok");
+      }).catch(function (err) {
+        var code = err && err.code;
+        if (code === "declined") setExportStatus("Salvataggio annullato.");
+        else if (code === "rate_limited") setExportStatus("C'è già una richiesta di salvataggio aperta: completala e riprova.", "error");
+        else if (code === "unavailable" || code === "not_granted" || code === "capability_disabled" || code === "capability_removed") fallbackDownload(blob, name);
+        else setExportStatus("Non sono riuscita a salvare il PDF" + (err && err.message ? " (" + err.message + ")" : "") + ".", "error");
+      });
+    });
+  }
+
+  // Fuori da Claude (pagina aperta da sola) uso il download normale del browser.
+  function saveBlob(blob, name, report) {
+    // Sul telefono apro il menu Condividi (Salva su File, WhatsApp, Mail…): su iPhone è più affidabile del download.
+    try {
+      var type = /\.pdf$/i.test(name) ? "application/pdf" : "application/json";
+      var f = typeof File === "function" ? new File([blob], name, { type: type }) : null;
+      var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      if (f && coarse && navigator.canShare && navigator.canShare({ files: [f] })) {
+        navigator.share({ files: [f], title: name }).then(function () { report("Pronto: " + name, "ok"); })
+          .catch(function (err) { if (err && err.name === "AbortError") report("Annullato."); else downloadLink(blob, name, report); });
+        return;
+      }
+    } catch (e) {}
+    downloadLink(blob, name, report);
+  }
+  function downloadLink(blob, name, report) {
+    try {
+      var url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+      report("Scaricato: " + name, "ok");
+    } catch (e) {
+      report("Questo browser non permette di scaricare il file da qui.", "error");
+    }
+  }
+  function fallbackDownload(blob, name) {
+    saveBlob(blob, name, function (text, kind) { setExportStatus(text.indexOf("Scaricato") === 0 ? "PDF scaricato: " + name : text, kind); });
+  }
+
+
+  /* ---------- Calendario ---------- */
+  function calendarEvents() {
+    var out = [];
+    state.programs.forEach(function (p) {
+      var D = state.sessionDates[p.id] || {};
+      Object.keys(D).forEach(function (k) {
+        var d = D[k], parts = k.split("-").map(Number);
+        var w = p.weeks[parts[0]], s = w && w.sessions[parts[1]];
+        if (!d || !s) return;
+        var completed = 0;
+        s.exercises.forEach(function (e, ei) { if (isComplete(e, getEntry(p.id, entryKey(parts[0], parts[1], ei), e, false))) completed++; });
+        out.push({ date: d, p: p, wi: parts[0], si: parts[1], week: w, session: s, completed: completed });
+      });
+    });
+    return out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.week.number - b.week.number || a.session.number - b.session.number; });
+  }
+
+  function calendarRow(ev) {
+    var d = parseDate(ev.date);
+    var total = ev.session.exercises.length;
+    return '<button class="row" data-action="open-cal-session" data-pid="' + esc(ev.p.id) + '" data-w="' + ev.wi + '" data-s="' + ev.si + '">' +
+      '<div class="date-badge"><b>' + d.getDate() + '</b><span>' + esc(d.toLocaleDateString("it-IT", { weekday: "short" })) + '</span></div>' +
+      '<div class="row-main"><div class="row-title">Sessione ' + ev.session.number + ' · Settimana ' + ev.week.number + '</div>' +
+      '<div class="row-sub">' + esc(ev.p.title) + ' · ' + (ev.completed === total ? "completata" : ev.completed + " di " + total + " esercizi completati") + '</div></div>' +
+      (ev.completed === total ? ICON.checkCircle : ICON.chev) + '</button>';
+  }
+
+  function viewCalendar() {
+    var waiting = state.programs.some(function (p) { return !state.logsLoaded[p.id]; });
+    var events = calendarEvents();
+    if (!state.calMonth) {
+      var latest = events.length ? events[events.length - 1].date : todayStr();
+      state.calMonth = latest.slice(0, 7);
+      if (!state.calDay) state.calDay = latest;
+    }
+    var y = +state.calMonth.slice(0, 4), m = +state.calMonth.slice(5, 7);
+    var first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), lead = (first.getDay() + 6) % 7;
+    var byDay = {};
+    events.forEach(function (ev) { (byDay[ev.date] = byDay[ev.date] || []).push(ev); });
+    var today = todayStr();
+    var monthLabel = first.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+
+    var h = topbar(backBtn("cal-back", state.calFrom === "program" ? "Scheda" : "Schede"), "Calendario", "");
+    h += "<main>";
+    h += '<div class="card cal"><div class="cal-head">' +
+      '<button class="cal-nav" data-action="cal-prev" aria-label="Mese precedente">' + ICON.prev + '</button>' +
+      '<h2>' + esc(monthLabel) + '</h2>' +
+      '<button class="cal-nav" data-action="cal-next" aria-label="Mese successivo">' + ICON.next + '</button></div>' +
+      '<div class="cal-grid">';
+    ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"].forEach(function (d) { h += '<div class="cal-dow">' + d + '</div>'; });
+    for (var i = 0; i < lead; i++) h += '<span class="cal-day out" aria-hidden="true"></span>';
+    for (var day = 1; day <= days; day++) {
+      var ds = y + "-" + pad2(m) + "-" + pad2(day), n = (byDay[ds] || []).length;
+      var cls = ["cal-day"];
+      if (n) cls.push("has");
+      if (ds === today) cls.push("today");
+      if (ds === state.calDay) cls.push("selected");
+      h += '<button class="' + cls.join(" ") + '" data-action="pick-day" data-date="' + ds + '" aria-pressed="' + (ds === state.calDay) + '" aria-label="' +
+        esc(fmtDate(ds, true)) + (n ? ", " + (n === 1 ? "1 sessione" : n + " sessioni") : "") + '">' + day + '<span class="dot' + (n ? "" : " none") + '"></span></button>';
+    }
+    h += '</div></div>';
+
+    if (waiting) h += '<div class="busy"><div class="spinner"></div>Carico le sessioni registrate…</div>';
+
+    if (state.calDay && state.calDay.slice(0, 7) === state.calMonth) {
+      var dayEvents = byDay[state.calDay] || [];
+      h += '<div><p class="section-label">' + esc(fmtDate(state.calDay, true)) + '</p>';
+      h += dayEvents.length ? '<div class="list">' + dayEvents.map(calendarRow).join("") + '</div>' : '<p class="empty-note">Nessuna sessione registrata in questo giorno.</p>';
+      h += '</div>';
+    }
+
+    var monthEvents = events.filter(function (ev) { return ev.date.slice(0, 7) === state.calMonth; });
+    h += '<div><p class="section-label">Sessioni di ' + esc(first.toLocaleDateString("it-IT", { month: "long" })) + '</p>';
+    h += monthEvents.length ? '<div class="list">' + monthEvents.map(calendarRow).join("") + '</div>'
+      : '<p class="empty-note">Nessuna sessione registrata in questo mese. Le sessioni compaiono qui quando segni la prima serie.</p>';
+    h += '</div></main>';
+    return h;
+  }
+
+  function shiftMonth(delta) {
+    var y = +state.calMonth.slice(0, 4), m = +state.calMonth.slice(5, 7) - 1 + delta;
+    var d = new Date(y, m, 1);
+    state.calMonth = d.getFullYear() + "-" + pad2(d.getMonth() + 1);
+    render();
+  }
+
+  /* ---------- Render ---------- */
+  function render() {
+    var views = { home: viewHome, review: viewReview, program: viewProgram, session: viewSession, exercise: viewExercise, calendar: viewCalendar };
+    app.innerHTML = (views[state.view] || viewHome)();
+    document.body.classList.toggle("pager-mode", state.view === "exercise");
+    if (state.view === "exercise") setupPager();
+  }
+
+  // Distanza tra l'inizio di una scheda esercizio e la successiva (larghezza + gap).
+  function pagerStep(pager) {
+    var card = pager.querySelector(".ex-card");
+    return card ? card.offsetWidth + 16 : pager.clientWidth;
+  }
+
+  function setupPager() {
+    var pager = document.getElementById("pager");
+    if (!pager) return;
+    pager.scrollLeft = state.exercise * pagerStep(pager);
+    var t = null;
+    pager.addEventListener("scroll", function () {
+      clearTimeout(t);
+      t = setTimeout(function () {
+        var i = Math.round(pager.scrollLeft / pagerStep(pager));
+        if (i !== state.exercise) { state.exercise = i; updatePagerChrome(); }
+      }, 80);
+    }, { passive: true });
+  }
+
+  function updatePagerChrome() {
+    var cs = currentSession(); if (!cs) return;
+    var ex = cs.session.exercises, i = state.exercise;
+    var title = app.querySelector(".topbar h1"); if (title) title.textContent = (i + 1) + " di " + ex.length;
+    var label = document.getElementById("next-label"); if (label) label.innerHTML = nextLabel(ex, i);
+    var prev = app.querySelector('[data-action="prev-ex"]'), next = app.querySelector('[data-action="next-ex"]');
+    if (prev) prev.disabled = i === 0;
+    if (next) next.disabled = i >= ex.length - 1;
+  }
+
+  function goToExercise(i) {
+    var cs = currentSession(); if (!cs) return;
+    i = Math.max(0, Math.min(cs.session.exercises.length - 1, i));
+    state.exercise = i;
+    var pager = document.getElementById("pager");
+    if (pager) {
+      var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      pager.scrollTo({ left: i * pagerStep(pager), behavior: reduce ? "auto" : "smooth" });
+    }
+    updatePagerChrome();
+  }
+
+  function navigate(view) {
+    flushAll();
+    if (view !== state.view) state.exportStatus = null;
+    state.view = view; state.confirmDelete = false;
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Import ---------- */
+  function readPdf(file) {
+    return file.arrayBuffer().then(function (buf) {
+      if (!window.pdfjsLib) throw new Error("Il lettore PDF non si è caricato. Controlla la connessione e riprova.");
+      return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
+    }).then(function (doc) {
+      var pages = [], chain = Promise.resolve();
+      for (var n = 1; n <= doc.numPages; n++) {
+        (function (num) {
+          chain = chain.then(function () { return doc.getPage(num); })
+            .then(function (page) { return page.getTextContent(); })
+            .then(function (tc) { pages.push(tc.items); });
+        })(n);
+      }
+      return chain.then(function () { return pages; });
+    });
+  }
+
+  function flaggedPaths(p) {
+    var out = [];
+    p.weeks.forEach(function (w, wi) { w.sessions.forEach(function (s, si) { s.exercises.forEach(function (e, ei) { if (P.issues(e).length) out.push([wi, si, ei]); }); }); });
+    return out;
+  }
+
+  fileInput.addEventListener("change", function () {
+    var file = fileInput.files && fileInput.files[0];
+    fileInput.value = "";
+    if (!file) return;
+    state.error = ""; state.busy = true; render();
+    readPdf(file).then(function (pages) {
+      var parsed = P.parse(pages, file.name);
+      state.pending = parsed;
+      state.flagged = flaggedPaths(parsed);
+      state.busy = false;
+      navigate("review");
+    }).catch(function (err) {
+      state.busy = false;
+      state.error = (err && err.message) || "Il file non sembra un PDF leggibile.";
+      render();
+    });
+  });
+
+  function saveImport() {
+    var p = state.pending; if (!p) return;
+    var program = { title: (p.title || "").trim() || "Scheda", fileName: p.fileName, importedAt: new Date().toISOString(), weeks: p.weeks };
+    store.save(program).then(function (id) {
+      program.id = id;
+      state.programs = state.programs.filter(function (x) { return x.id !== id; }).concat([program]);
+      state.pending = null; state.flagged = []; state.editing = null; state.error = "";
+      state.programId = id; state.week = 0;
+      state.logs[id] = {}; state.sessionDates[id] = {}; state.logsLoaded[id] = true;
+      navigate("program");
+    }).catch(function (err) {
+      state.error = "Non sono riuscita a salvare la scheda: " + ((err && err.message) || "errore sconosciuto") + ". Riprova.";
+      render();
+    });
+  }
+
+  /* ---------- Eventi ---------- */
+  app.addEventListener("click", function (ev) {
+    var el = ev.target.closest("[data-action]");
+    if (!el || !app.contains(el)) return;
+    var a = el.dataset.action;
+    if (a === "close-edit" && el.classList.contains("sheet-backdrop") && ev.target !== el) return; // click dentro il foglio
+    switch (a) {
+      case "import": state.error = ""; fileInput.click(); break;
+      case "cancel-import": state.pending = null; state.flagged = []; state.error = ""; navigate("home"); break;
+      case "save-import": saveImport(); break;
+      case "edit": state.editing = el.dataset.path.split(",").map(Number); render(); break;
+      case "close-edit": state.editing = null; render(); break;
+      case "open-program": state.programId = el.dataset.id; state.week = 0; loadLogs(el.dataset.id); navigate("program"); break;
+      case "toggle-set":
+      case "miss-set":
+      case "add-set":
+      case "remove-set":
+        handleSetAction(a, el); break;
+      case "go-home": navigate("home"); break;
+      case "timer-ex":
+        var tcs = currentSession(), tex = tcs && tcs.session.exercises[Number(el.dataset.i)];
+        if (tex) restTimer.open(restSeconds(tex.rest) || 90, tex.name);
+        break;
+      case "export-week": exportPdf(false); break;
+      case "backup-export": exportBackup(); break;
+      case "backup-import": state.backupStatus = null; backupInput.click(); break;
+      case "backup-cancel": state.backupPending = null; render(); break;
+      case "backup-restore": restoreBackup(); break;
+      case "export-all": exportPdf(true); break;
+      case "open-calendar":
+        state.calFrom = state.view === "program" ? "program" : "home";
+        state.programs.forEach(function (p) { loadLogs(p.id); });
+        navigate("calendar"); break;
+      case "cal-back": navigate(state.calFrom === "program" && currentProgram() ? "program" : "home"); break;
+      case "cal-prev": shiftMonth(-1); break;
+      case "cal-next": shiftMonth(1); break;
+      case "pick-day": state.calDay = el.dataset.date; render(); break;
+      case "open-cal-session":
+        var cp = state.programs.find(function (x) { return x.id === el.dataset.pid; });
+        if (!cp) break;
+        state.programId = cp.id;
+        state.week = Math.max(0, sortedWeeks(cp).indexOf(cp.weeks[Number(el.dataset.w)]));
+        state.session = Number(el.dataset.s);
+        loadLogs(cp.id);
+        navigate("session"); break;
+      case "pick-week": state.week = Number(el.dataset.i); state.confirmDelete = false; state.exportStatus = null; render(); break;
+      case "open-session": state.session = Number(el.dataset.i); navigate("session"); break;
+      case "go-program": navigate("program"); break;
+      case "open-exercise": state.exercise = Number(el.dataset.i); navigate("exercise"); break;
+      case "go-session": navigate("session"); break;
+      case "prev-ex": goToExercise(state.exercise - 1); break;
+      case "next-ex": goToExercise(state.exercise + 1); break;
+      case "ask-delete": state.confirmDelete = true; render(); break;
+      case "cancel-delete": state.confirmDelete = false; render(); break;
+      case "confirm-delete":
+        var id = state.programId;
+        store.remove(id).then(function () {
+          state.programs = state.programs.filter(function (p) { return p.id !== id; });
+          delete state.logs[id]; delete state.sessionDates[id]; delete state.logsLoaded[id]; delete saveQueue[id];
+          state.programId = null; navigate("home");
+        }).catch(function () { state.confirmDelete = false; render(); });
+        break;
+    }
+  });
+
+  function handleSetAction(action, el) {
+    var section = el.closest(".log"), c = sectionContext(section);
+    if (!c || !state.logsLoaded[c.p.id]) return;
+    var en = getEntry(c.p.id, c.key, c.e, true);
+    if (action === "add-set") {
+      var n = rowCount(c.e, en);
+      setAt(en, n);
+      touchSession(c.p.id, c.wi, c.si); scheduleSave(c.p.id);
+      rerenderLog(section, '[data-set="' + n + '"] [data-log-field="kg"]');
+      return;
+    }
+    var i = Number(el.closest(".set-row").dataset.set);
+    if (action === "remove-set") {
+      if (i >= prescribedSets(c.e) && i < en.sets.length) en.sets.splice(i, 1);
+      touchSession(c.p.id, c.wi, c.si); scheduleSave(c.p.id);
+      rerenderLog(section);
+      return;
+    }
+    // Riuscita (✓) o sbagliata (✗): sono alternative. Segnando una serie senza peso,
+    // prendo quello suggerito (serie prima, settimana scorsa o scheda).
+    var s = setAt(en, i), field = action === "miss-set" ? "missed" : "done";
+    var turningOn = !s[field];
+    if (turningOn && !s.kg) {
+      var hint = kgPlaceholder(c.e, en, i, lastTime(c.p, c.wi, c.si, c.e));
+      if (hint) s.kg = String(hint).replace(",", ".");
+    }
+    s.done = field === "done" ? turningOn : false;
+    s.missed = field === "missed" ? turningOn : false;
+    touchSession(c.p.id, c.wi, c.si); scheduleSave(c.p.id);
+    rerenderLog(section);
+  }
+
+  // Registro: salvo mentre scrivi, senza ridisegnare (il cursore resta dov'è).
+  app.addEventListener("input", function (ev) {
+    var t = ev.target;
+    if (t.dataset.logField) {
+      var section = t.closest(".log"), c = sectionContext(section);
+      if (!c || !state.logsLoaded[c.p.id]) return;
+      var en = getEntry(c.p.id, c.key, c.e, true), f = t.dataset.logField;
+      if (f === "feedback" || f === "note") {
+        en[f] = t.value;
+      } else {
+        var row = t.closest(".set-row"), i = Number(row.dataset.set);
+        var v = t.value.trim();
+        if (f === "kg") v = v.replace(",", ".");
+        setAt(en, i)[f] = v;
+        if (f === "kg") {
+          // Aggiorno i suggerimenti delle serie successive
+          var last = lastTime(c.p, c.wi, c.si, c.e);
+          section.querySelectorAll(".set-row").forEach(function (r) {
+            var j = Number(r.dataset.set);
+            if (j <= i) return;
+            var inp = r.querySelector('[data-log-field="kg"]');
+            if (inp) inp.placeholder = fmtKg(kgPlaceholder(c.e, en, j, last));
+          });
+        }
+      }
+      var prev = section.querySelector(".notes-preview");
+      if (prev) prev.innerHTML = previewHtml(c.e, en);
+      touchSession(c.p.id, c.wi, c.si); scheduleSave(c.p.id);
+      return;
+    }
+    if (t.dataset.bind === "title" && state.pending) { state.pending.title = t.value; return; }
+    if (t.dataset.edit && state.editing && state.pending) {
+      var p = state.editing, e = state.pending.weeks[p[0]].sessions[p[1]].exercises[p[2]];
+      e[t.dataset.edit] = t.value.trim();
+      var iss = P.issues(e), box = document.getElementById("sheet-issues");
+      if (box) box.innerHTML = iss.length ? '<div class="issues">' + iss.map(function (i) { return '<div>' + ICON.warn + '<span>' + esc(i) + '</span></div>'; }).join("") + '</div>' : "";
+    }
+  });
+
+  app.addEventListener("change", function (ev) {
+    if (ev.target.id !== "session-date") return;
+    var p = currentProgram(), cs = currentSession(); if (!p || !cs) return;
+    var D = datesOf(p.id), k = sessionKey(p.weeks.indexOf(cs.week), state.session);
+    if (ev.target.value) D[k] = ev.target.value; else delete D[k];
+    scheduleSave(p.id);
+    render();
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    if (state.view === "exercise" && !/INPUT|TEXTAREA/.test((ev.target.tagName || ""))) {
+      if (ev.key === "ArrowRight") { goToExercise(state.exercise + 1); ev.preventDefault(); }
+      if (ev.key === "ArrowLeft") { goToExercise(state.exercise - 1); ev.preventDefault(); }
+    }
+    if (ev.key === "Escape" && state.editing) { state.editing = null; render(); }
+  });
+
+  window.addEventListener("resize", function () {
+    if (state.view !== "exercise") return;
+    var pager = document.getElementById("pager");
+    if (pager) pager.scrollLeft = state.exercise * pagerStep(pager);
+  });
+
+  // Uscendo dall'app o cambiando scheda del telefono salvo subito quello che manca.
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flushAll(); });
+  window.addEventListener("pagehide", flushAll);
+
+  /* ---------- Timer di recupero ----------
+     Fuori da #app, così resta visibile mentre cambi esercizio o schermata.
+     Il conto si basa sull'ora di fine, quindi resta giusto anche se il telefono rallenta la pagina. */
+  function restSeconds(rest) {
+    var t = String(rest || "").replace(/["'’”\s]/g, "");
+    var m = /^(\d+)(?:\.(\d+))?$/.exec(t);
+    if (!m) return null;
+    var secs = parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0);
+    return secs > 0 ? secs : null;
+  }
+
+  var restTimer = (function () {
+    var POS_KEY = "scheda.timer.pos.v1";
+    var fab = document.createElement("button");
+    fab.className = "rt-fab"; fab.type = "button";
+    fab.setAttribute("aria-label", "Timer di recupero");
+    var panel = document.createElement("div");
+    panel.className = "rt-panel"; panel.hidden = true;
+    panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Timer di recupero");
+    document.body.appendChild(panel); document.body.appendChild(fab);
+
+    var t = { status: "ready", total: 90, left: 90, endAt: 0, label: "", interval: null, wake: null, open: false };
+    var audio = null;
+
+    /* --- posizione dell'icona: si trascina, si aggancia al bordo più vicino e la ricordo --- */
+    var pos = { side: "right", top: 70 };
+    try { var saved = JSON.parse(localStorage.getItem(POS_KEY) || "null"); if (saved && saved.side) pos = saved; } catch (e) {}
+    function clampTop(top) { return Math.min(Math.max(8, top), window.innerHeight - 66); }
+    function place() {
+      fab.style.top = clampTop(pos.top) + "px";
+      fab.style.left = (pos.side === "left" ? 12 : window.innerWidth - 58 - 12) + "px";
+      if (t.open) placePanel();
+    }
+    function placePanel() {
+      var r = fab.getBoundingClientRect();
+      panel.style.left = panel.style.right = panel.style.top = panel.style.bottom = "";
+      if (pos.side === "left") panel.style.left = "12px"; else panel.style.right = "12px";
+      if (r.top < window.innerHeight / 2) panel.style.top = (r.bottom + 8) + "px";
+      else panel.style.bottom = (window.innerHeight - r.top + 8) + "px";
+    }
+    var drag = null;
+    fab.addEventListener("pointerdown", function (ev) {
+      drag = { x: ev.clientX, y: ev.clientY, moved: false, ox: ev.clientX - fab.offsetLeft, oy: ev.clientY - fab.offsetTop };
+      try { fab.setPointerCapture(ev.pointerId); } catch (e) {}
+    });
+    fab.addEventListener("pointermove", function (ev) {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) < 8) return;
+      if (!drag.moved) { drag.moved = true; fab.classList.add("dragging"); fab.classList.remove("snap"); }
+      fab.style.left = (ev.clientX - drag.ox) + "px";
+      fab.style.top = (ev.clientY - drag.oy) + "px";
+      if (t.open) placePanel();
+    });
+    function endDrag(ev) {
+      if (!drag) return;
+      var moved = drag.moved; drag = null;
+      fab.classList.remove("dragging");
+      if (moved) {
+        var r = fab.getBoundingClientRect();
+        pos = { side: r.left + r.width / 2 < window.innerWidth / 2 ? "left" : "right", top: clampTop(r.top) };
+        try { localStorage.setItem(POS_KEY, JSON.stringify(pos)); } catch (e) {}
+        fab.classList.add("snap"); place();
+        ev && ev.preventDefault();
+      }
+      return moved;
+    }
+    fab.addEventListener("pointerup", function (ev) { if (!endDrag(ev)) toggle(); });
+    fab.addEventListener("pointercancel", function () { endDrag(); });
+    fab.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(); } });
+    window.addEventListener("resize", place);
+
+    /* --- tempo --- */
+    function clock(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ":" + pad2(sec % 60); }
+    function remaining() { return t.status === "running" ? Math.max(0, (t.endAt - Date.now()) / 1000) : t.left; }
+    function progress(left) { return t.status === "done" ? 100 : t.total ? Math.min(100, Math.max(0, (1 - left / t.total) * 100)) : 0; }
+
+    function unlockAudio() {
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!audio) audio = new AC();
+        if (audio.state === "suspended") audio.resume();
+      } catch (e) {}
+    }
+    function beep() {
+      if (!audio) return;
+      try {
+        [0, 0.35, 0.7].forEach(function (offset, i) {
+          var o = audio.createOscillator(), g = audio.createGain(), start = audio.currentTime + offset;
+          o.frequency.value = i === 2 ? 1320 : 880;
+          o.connect(g); g.connect(audio.destination);
+          g.gain.setValueAtTime(0.0001, start);
+          g.gain.exponentialRampToValueAtTime(0.5, start + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+          o.start(start); o.stop(start + 0.3);
+        });
+      } catch (e) {}
+    }
+    function keepAwake(on) {
+      try {
+        if (on && !t.wake && navigator.wakeLock) navigator.wakeLock.request("screen").then(function (l) { t.wake = l; }).catch(function () {});
+        if (!on && t.wake) { t.wake.release().catch(function () {}); t.wake = null; }
+      } catch (e) {}
+    }
+    function stopTicking() { clearInterval(t.interval); t.interval = null; }
+
+    // Tempo proposto quando il timer è fermo: il recupero dell'esercizio che stai guardando.
+    function presetFromView() {
+      if (state.view !== "exercise") return null;
+      var cs = currentSession(), e = cs && cs.session && cs.session.exercises[state.exercise];
+      if (!e) return null;
+      return { secs: restSeconds(e.rest), label: e.name };
+    }
+
+    /* --- disegno --- */
+    function renderFab() {
+      var left = remaining(), active = t.status === "running" || t.status === "paused";
+      fab.classList.toggle("done", t.status === "done");
+      fab.style.setProperty("--p", active ? progress(left).toFixed(1) : 0);
+      fab.innerHTML = '<span class="rt-fab-in">' + (active ? clock(left) : t.status === "done" ? "0:00" : ICON.timer) + '</span>';
+      fab.setAttribute("aria-label", active ? "Timer di recupero, mancano " + clock(left) : t.status === "done" ? "Recupero finito" : "Apri il timer di recupero");
+      fab.setAttribute("aria-expanded", String(t.open));
+    }
+    function renderPanel() {
+      panel.hidden = !t.open;
+      panel.classList.toggle("done", t.status === "done");
+      if (!t.open) { panel.innerHTML = ""; return; }
+      var left = remaining();
+      var top = '<div class="rt-top"><span>' + (t.status === "done" ? "Recupero finito" : "Recupero") + (t.label ? " · " + esc(t.label) : "") + '</span>' +
+        '<button class="rt-close" data-t="hide" aria-label="Chiudi il riquadro (il timer continua)">' + ICON.cross + '</button></div>';
+      var adjust = function (d, label) { return '<button class="rt-adj" data-t="adj" data-d="' + d + '" aria-label="' + (d > 0 ? "Aggiungi" : "Togli") + ' 15 secondi">' + label + '</button>'; };
+      var main = '<div class="rt-main">' + adjust(-15, "−15″") +
+        '<div class="rt-time" id="rt-time">' + (t.status === "done" ? "0:00" : clock(left)) + '</div>' + adjust(15, "+15″") + '</div>';
+      var bar = '<div class="rt-bar" aria-hidden="true"><i id="rt-bar" style="width:' + progress(left) + '%"></i></div>';
+      var actions;
+      if (t.status === "ready") actions = '<button class="rt-primary" data-t="start">Avvia ' + clock(t.left) + '</button>';
+      else if (t.status === "running") actions = '<button class="rt-secondary" data-t="pause">Pausa</button><button class="rt-secondary" data-t="stop">Stop</button>';
+      else if (t.status === "paused") actions = '<button class="rt-primary" data-t="resume">Riprendi</button><button class="rt-secondary" data-t="stop">Stop</button>';
+      else actions = '<button class="rt-secondary" data-t="again">Ancora 30″</button><button class="rt-secondary" data-t="stop">OK</button>';
+      panel.innerHTML = '<div class="rt-card">' + top + main + bar + '<div class="rt-actions">' + actions + '</div></div>';
+      placePanel();
+    }
+    function render() { renderFab(); renderPanel(); }
+
+    function tick() {
+      var left = remaining();
+      if (t.status === "running" && left <= 0) return finish();
+      var time = document.getElementById("rt-time"), bar = document.getElementById("rt-bar");
+      if (time) time.textContent = clock(left);
+      if (bar) bar.style.width = progress(left) + "%";
+      renderFab();
+    }
+    function finish() {
+      stopTicking(); keepAwake(false);
+      t.status = "done"; t.left = 0;
+      beep();
+      try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) {}
+      render();
+    }
+    function run() {
+      t.endAt = Date.now() + t.left * 1000; t.status = "running";
+      stopTicking(); t.interval = setInterval(tick, 250);
+      keepAwake(true); render();
+    }
+    function setReady(secs, label) {
+      stopTicking(); keepAwake(false);
+      t.total = t.left = secs; t.label = label || ""; t.status = "ready";
+    }
+    function toggle() {
+      if (t.open) { t.open = false; render(); return; }
+      if (t.status === "ready") {
+        var pre = presetFromView();
+        if (pre) setReady(pre.secs || t.total || 90, pre.label);
+      }
+      t.open = true; render();
+    }
+
+    panel.addEventListener("click", function (ev) {
+      var b = ev.target.closest("[data-t]"); if (!b) return;
+      var a = b.dataset.t;
+      if (a === "hide") { t.open = false; render(); }
+      else if (a === "start" || a === "resume") { unlockAudio(); run(); }
+      else if (a === "pause") { t.left = remaining(); t.status = "paused"; stopTicking(); keepAwake(false); render(); }
+      else if (a === "stop") {
+        // "Stop" azzera e lascia il riquadro aperto; "OK" a recupero finito lo chiude anche.
+        var wasDone = t.status === "done", pre = presetFromView();
+        setReady((pre && pre.secs) || t.total || 90, pre ? pre.label : t.label);
+        if (wasDone) t.open = false;
+        render();
+      }
+      else if (a === "again") { unlockAudio(); t.total = t.left = 30; run(); }
+      else if (a === "adj") {
+        var d = Number(b.dataset.d);
+        if (t.status === "done") { unlockAudio(); t.total = t.left = Math.max(15, d); run(); return; }
+        var left = Math.max(5, remaining() + d);
+        t.total = Math.max(5, t.total + d);
+        if (left > t.total) t.total = left;
+        if (t.status === "running") t.endAt = Date.now() + left * 1000; else t.left = left;
+        if (t.status === "ready") render(); else tick();
+      }
+    });
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && t.status === "running") {
+        if (!t.wake) keepAwake(true);
+        tick();
+      }
+    });
+
+    place(); render();
+
+    return {
+      // Apre il riquadro con un tempo preciso (pulsante "Timer" nel recupero dell'esercizio).
+      // Se un recupero sta già scorrendo non lo interrompo: apro solo il riquadro.
+      open: function (secs, label) {
+        if (t.status !== "running" && t.status !== "paused") setReady(secs, label);
+        t.open = true; render();
+      }
+    };
+  })();
+
+  /* ---------- Avvio ---------- */
+  render();
+  store.init().then(function () { return store.list(); }).then(function (list) {
+    state.programs = list; state.loading = false; render();
+  }).catch(function () {
+    state.loading = false; render();
+  });
+})();
+</script>
+
+<script>
+/* Funzionamento offline: il service worker tiene in memoria la pagina, le librerie e i font. */
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+</script>
+</body>
+</html>
