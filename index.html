@@ -297,6 +297,7 @@ button.set-n svg { width: 18px; height: 18px; }
 .set-row.done .set-n { color: var(--kg); }
 .set-row.missed .set-miss { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .set-row.missed .set-n { color: var(--accent); }
+.set-row.under .set-field:first-of-type input { color: var(--warn, #a8500c); }
 .set-row.missed .set-field input { text-decoration: line-through; text-decoration-thickness: 2px; }
 .text-field textarea.auto { resize: none; overflow: hidden; min-height: 64px; line-height: 1.4; }
 .coach-field textarea { border-left: 3px solid var(--accent); }
@@ -1041,18 +1042,34 @@ var SchedaParser = (function () {
 
   // Colonna Note: solo automatica. I pesi usati (con le rep se diverse da quelle prescritte)
   // e le serie sbagliate. Es. "Pesi: 50 – 55 – 57,5×1 kg · ✗ serie 4 (57,5 kg)"
+  // Peso previsto: dal massimale (il più basso se la % è un intervallo) o il carico scritto nella scheda
+  function expectedKg(e) {
+    var sug = suggestion(e);
+    if (sug && sug.kgs && sug.kgs.length) return parseFloat(sug.kgs[0]);
+    var m = /^(\d+(?:[.,]\d+)?)(?:\s*[\/–-]\s*\d+(?:[.,]\d+)?)?\s*kg$/i.exec((e.load || "").trim());
+    return m ? parseFloat(m[1].replace(",", ".")) : 0;
+  }
+  function isUnder(e, s) {
+    var exp = expectedKg(e), kg = parseFloat(String(s && s.kg || "").replace(",", "."));
+    return exp > 0 && kg > 0 && kg < exp - 0.001;
+  }
+  // Colonna Note, automatica: ogni serie con peso e spunta, es. "45 ✗ – 45 ✓ – 50 ✓",
+  // più le serie fatte sotto il peso previsto.
   function setsSummary(e, en) {
     if (!en || !en.sets) return "";
-    var kgs = [], missed = [], presc = String(e.reps || "").trim();
+    var items = [], under = [], presc = String(e.reps || "").trim();
     en.sets.forEach(function (s, i) {
-      if (!s) return;
-      if (s.kg) kgs.push(fmtKg(s.kg) + (s.reps && String(s.reps).trim() !== presc ? "×" + s.reps : ""));
-      if (s.missed) missed.push({ n: i + 1, kg: s.kg, reps: s.reps });
+      if (!s || !(s.kg || s.done || s.missed)) return;
+      var t = s.kg ? fmtKg(s.kg) : "—";
+      if (s.reps && String(s.reps).trim() !== presc) t += "×" + s.reps;
+      if (s.done) t += " ✓"; else if (s.missed) t += " ✗";
+      items.push(t);
+      if (isUnder(e, s)) under.push(i + 1);
     });
-    var parts = [];
-    if (kgs.length) parts.push("Pesi: " + kgs.join(" – ") + " kg");
-    if (missed.length) parts.push("✗ " + (missed.length === 1 ? "serie " : "serie ") + missed.map(function (m) { return m.n + (m.kg ? " (" + fmtKg(m.kg) + " kg)" : ""); }).join(", "));
-    return parts.join(" · ");
+    if (!items.length) return "";
+    var out = items.join(" – ");
+    if (under.length) out += " · sotto il previsto (" + fmtKg(String(expectedKg(e))) + " kg): serie " + under.join(", ");
+    return out;
   }
   function notesText(e, en) {
     var sum = setsSummary(e, en);
@@ -1356,7 +1373,7 @@ var SchedaParser = (function () {
       var s = en && en.sets[i] ? en.sets[i] : { kg: "", reps: "", done: false, missed: false };
       var extra = i >= total;
       var idBase = "log-" + key + "-" + i;
-      h += '<div class="set-row' + (s.done ? " done" : s.missed ? " missed" : "") + '" data-set="' + i + '">' +
+      h += '<div class="set-row' + (s.done ? " done" : s.missed ? " missed" : "") + (isUnder(e, s) ? " under" : "") + '" data-set="' + i + '">' +
         (extra
           ? '<button class="set-n" data-action="remove-set" aria-label="Rimuovi serie ' + (i + 1) + '">' + ICON.minus + '</button>'
           : '<span class="set-n" aria-hidden="true">' + (i + 1) + '</span>') +
@@ -2293,6 +2310,7 @@ var SchedaParser = (function () {
         if (f === "kg") v = v.replace(",", ".");
         setAt(en, i)[f] = v;
         if (f === "kg") {
+          row.classList.toggle("under", isUnder(c.e, en.sets[i]));
           // Aggiorno i suggerimenti delle serie successive
           var last = lastTime(c.p, c.wi, c.si, c.e);
           section.querySelectorAll(".set-row").forEach(function (r) {

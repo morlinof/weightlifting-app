@@ -1,7 +1,7 @@
-/* Service worker di Scheda Pesistica — versione 7cc0e09ad1
+/* Service worker di Scheda Pesistica — versione e3013e2ad6
    - pagina: prima la rete (così gli aggiornamenti arrivano subito), poi la copia salvata se sei offline;
    - librerie, font e icone: dalla copia salvata. */
-const CACHE = "scheda-7cc0e09ad1";
+const CACHE = "scheda-e3013e2ad6";
 const FILES = [
   "./",
   "fonts/barlow-condensed-latin-600-normal.woff2",
