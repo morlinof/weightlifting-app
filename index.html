@@ -298,6 +298,21 @@ button.set-n svg { width: 18px; height: 18px; }
 .set-row.missed .set-miss { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .set-row.missed .set-n { color: var(--accent); }
 .set-row.missed .set-field input { text-decoration: line-through; text-decoration-thickness: 2px; }
+.text-field textarea.auto { resize: none; overflow: hidden; min-height: 64px; line-height: 1.4; }
+.coach-field textarea { border-left: 3px solid var(--accent); }
+.coach-box { display: flex; flex-direction: column; gap: 8px; border-radius: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); }
+.cb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.cb-head b { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.cb-head span { font-size: 12px; color: var(--muted); }
+.cb-ai-text { white-space: pre-line; font-size: 15px; line-height: 1.45; }
+.cb-ai-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.cb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cb-list li { font-size: 14px; line-height: 1.4; white-space: pre-line; }
+.cb-list li small { display: block; font-size: 12px; color: var(--muted); }
+.cb-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.cb-actions .link-btn { padding-left: 0; padding-right: 0; }
+.cb-status { margin: 0; font-size: 13px; color: var(--muted); }
+.cb-status:empty { display: none; }
 .notes-preview { font-size: 13px; color: var(--muted); background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
 .notes-preview b { display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
 .notes-preview span { color: var(--ink); }
@@ -379,6 +394,7 @@ button.set-n svg { width: 18px; height: 18px; }
 .export-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .export-card .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .export-status { font-size: 13px; color: var(--muted); margin: 0; }
+.export-format { max-width: 240px; }
 .export-status.ok { color: var(--kg); }
 .export-status.error { color: var(--warn); }
 
@@ -533,6 +549,101 @@ var SchedaExport = (function () {
 })();
 </script>
 
+
+<script id="exporter-xlsx">
+/* ===== Export Excel =====
+   Stessa tabella del PDF (colonne, fasce verdi delle sessioni, intestazione blu),
+   un foglio per settimana, con celle vere: si modifica comodamente dal PC. */
+var SchedaXlsx = (function () {
+  var LABELS = ["Esercizio", "Serie", "Rip.", "%1RM", "Carico (kg)", "RPE", "Rec.", "Volume", "Tip tecniche", "Feedback", "Note", "Feedback coach"];
+  var WIDTHS = [30, 7, 7, 8, 11, 7, 8, 9, 34, 32, 32, 40];
+  var CENTER = [false, true, true, true, true, true, true, true, false, false, false, false];
+  var NC = LABELS.length;
+  var GREEN = "FFD9EAD3", BLUE = "FF1F4E78", LINE = "FFCCCCCC", INK = "FF141820", MUTED = "FF69717C";
+  var thin = { style: "thin", color: { argb: LINE } };
+  var BORDER = { top: thin, left: thin, bottom: thin, right: thin };
+
+  function txt(v) { return String(v == null ? "" : v).replace(/\r/g, "").trim(); }
+  // I numeri restano numeri (così su Excel si possono sommare); il resto è testo.
+  function val(v) {
+    var t = txt(v);
+    if (/^-?\d+([.,]\d+)?$/.test(t)) return Number(t.replace(",", "."));
+    return t;
+  }
+  function sheetName(t, used) {
+    var n = String(t).replace(/[\\\/?*\[\]:]/g, "-").slice(0, 31) || "Foglio", base = n, k = 2;
+    while (used[n.toLowerCase()]) n = base.slice(0, 28) + " " + (k++);
+    used[n.toLowerCase()] = true; return n;
+  }
+  function linesIn(v, width) {
+    return txt(v).split("\n").reduce(function (a, l) { return a + Math.max(1, Math.ceil(l.length / Math.max(4, width - 1))); }, 0);
+  }
+
+  function build(ExcelJS, o) {
+    var wb = new ExcelJS.Workbook(), p = o.program, used = {};
+    wb.creator = "Scheda"; wb.created = new Date();
+    o.weeks.forEach(function (wi) {
+      var w = p.weeks[wi];
+      var ws = wb.addWorksheet(sheetName("Settimana " + w.number, used), {
+        pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } },
+        views: [{ showGridLines: false }]
+      });
+      ws.columns = WIDTHS.map(function (wd) { return { width: wd }; });
+
+      var r = ws.addRow(["SETTIMANA " + w.number]);
+      r.font = { bold: true, size: 14, color: { argb: INK } }; r.height = 22;
+      r = ws.addRow([txt(o.subtitle)]);
+      r.font = { size: 9, color: { argb: MUTED } };
+      ws.addRow([]);
+
+      w.sessions.forEach(function (sess, si) {
+        // Fascia verde: sessione e data
+        r = ws.addRow(["SESSIONE " + sess.number]);
+        var date = o.dateFor(wi, si);
+        if (date) r.getCell(NC).value = "Svolta " + date;
+        for (var c = 1; c <= NC; c++) {
+          var cell = r.getCell(c);
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GREEN } };
+          cell.font = { bold: c === 1, size: 10, color: { argb: INK } };
+        }
+        r.getCell(NC).alignment = { horizontal: "right" };
+        // Intestazione blu
+        r = ws.addRow(LABELS);
+        r.eachCell(function (cell) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE } };
+          cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+          cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+          cell.border = BORDER;
+        });
+        var inSS = null;
+        sess.exercises.forEach(function (e, ei) {
+          if (e.supersetGroup != null && e.supersetGroup !== inSS) {
+            r = ws.addRow(["SUPERSET:"]);
+            r.getCell(1).font = { bold: true, size: 10 };
+            for (var c2 = 1; c2 <= NC; c2++) r.getCell(c2).border = BORDER;
+          }
+          inSS = e.supersetGroup != null ? e.supersetGroup : null;
+          var values = [e.name, e.sets, e.reps, e.percent, e.load, e.rpe, e.rest, e.volume, e.tip, o.feedbackFor(wi, si, ei, e), o.noteFor(wi, si, ei, e), o.coachFor ? o.coachFor(wi, si, ei, e) : ""];
+          r = ws.addRow(values.map(function (v, i) { return i === 0 || i >= 8 ? txt(v) : val(v); }));
+          var lines = 1;
+          values.forEach(function (v, i) {
+            var cell = r.getCell(i + 1);
+            cell.alignment = { horizontal: CENTER[i] ? "center" : "left", vertical: "top", wrapText: true };
+            cell.font = { size: 10, color: { argb: INK } };
+            cell.border = BORDER;
+            lines = Math.max(lines, linesIn(v, WIDTHS[i]));
+          });
+          r.height = Math.max(15, lines * 13 + 2);
+        });
+        ws.addRow([]);
+      });
+    });
+    return wb;
+  }
+
+  return { build: build };
+})();
+</script>
 
 <script id="parser">
 /* ===== Parser della scheda del coach =====
@@ -855,7 +966,10 @@ var SchedaParser = (function () {
     maxesFrom: "home",
     maxesStatus: "",
     backupPending: null,   // backup letto, in attesa di conferma
-    exportStatus: null     // { text, kind } sotto i pulsanti di export
+    exportStatus: null,    // { text, kind } sotto i pulsanti di export
+    coachOpen: {},         // famiglie con la lista dei feedback della coach aperta
+    aiAvailable: false,    // dentro Claude: posso chiedere il riassunto all'AI
+    exportFormat: (function () { try { return localStorage.getItem(LOCAL_KEY + ".exportFormat") === "xlsx" ? "xlsx" : "pdf"; } catch (e) { return "pdf"; } })()
   };
 
   var app = document.getElementById("app");
@@ -916,7 +1030,7 @@ var SchedaParser = (function () {
   function logsOf(pid) { return state.logs[pid] || (state.logs[pid] = {}); }
   function getEntry(pid, key, e, create) {
     var L = logsOf(pid), en = L[key];
-    if (!en && create) en = L[key] = { sets: [], feedback: e.feedback || "", note: e.note || "" };
+    if (!en && create) en = L[key] = { sets: [], feedback: e.feedback || "", coach: "" };
     return en || null;
   }
   function prescribedSets(e) { var n = parseInt(e.sets, 10); return n > 0 && n <= 30 ? n : 1; }
@@ -925,27 +1039,28 @@ var SchedaParser = (function () {
   function doneCount(en) { return en && en.sets ? en.sets.filter(function (s) { return s && (s.done || s.missed); }).length : 0; }
   function missedCount(en) { return en && en.sets ? en.sets.filter(function (s) { return s && s.missed; }).length : 0; }
 
-  // Riepilogo delle serie che finisce nella colonna Note del PDF, seguito dalle note scritte a mano.
+  // Colonna Note: solo automatica. I pesi usati (con le rep se diverse da quelle prescritte)
+  // e le serie sbagliate. Es. "Pesi: 50 – 55 – 57,5×1 kg · ✗ serie 4 (57,5 kg)"
   function setsSummary(e, en) {
     if (!en || !en.sets) return "";
-    var parts = [];
+    var kgs = [], missed = [], presc = String(e.reps || "").trim();
     en.sets.forEach(function (s, i) {
-      if (!s || !(s.kg || s.reps || s.done || s.missed)) return;
-      var t = (i + 1) + ")";
-      if (s.kg) t += " " + fmtKg(s.kg) + " kg";
-      if (s.reps) t += " " + s.reps + " rep";
-      if (s.done) t += " ✓"; else if (s.missed) t += " ✗";
-      parts.push(t);
+      if (!s) return;
+      if (s.kg) kgs.push(fmtKg(s.kg) + (s.reps && String(s.reps).trim() !== presc ? "×" + s.reps : ""));
+      if (s.missed) missed.push({ n: i + 1, kg: s.kg, reps: s.reps });
     });
+    var parts = [];
+    if (kgs.length) parts.push("Pesi: " + kgs.join(" – ") + " kg");
+    if (missed.length) parts.push("✗ " + (missed.length === 1 ? "serie " : "serie ") + missed.map(function (m) { return m.n + (m.kg ? " (" + fmtKg(m.kg) + " kg)" : ""); }).join(", "));
     return parts.join(" · ");
   }
   function notesText(e, en) {
-    var sum = setsSummary(e, en), note = en ? (en.note || "").trim() : (e.note || "").trim();
-    return sum && note ? sum + " — " + note : sum || note;
+    var sum = setsSummary(e, en);
+    return sum || (!en ? (e.note || "").trim() : "");
   }
   function previewHtml(e, en) {
     var t = notesText(e, en);
-    return '<b>Nelle note della scheda</b>' + (t ? '<span>' + esc(t) + '</span>' : 'Comparirà qui il riepilogo delle serie e quello che scrivi nelle note.');
+    return '<b>Note della scheda · automatiche</b>' + (t ? '<span>' + esc(t) + '</span>' : 'Qui compaiono da sole i pesi che usi e le serie sbagliate.');
   }
   function isComplete(e, en) { return doneCount(en) >= prescribedSets(e); }
   function fmtKg(v) { return String(v).replace(".", ","); }
@@ -1007,10 +1122,107 @@ var SchedaParser = (function () {
     });
     var notes = "";
     if ((en.feedback || "").trim()) notes += '<p class="lt-note"><strong>Feedback:</strong> ' + esc(en.feedback.trim()) + '</p>';
-    if ((en.note || "").trim()) notes += '<p class="lt-note"><strong>Note:</strong> ' + esc(en.note.trim()) + '</p>';
     return '<div class="last-time"><div class="lt-head"><b>L\'ultima volta' + (last.date ? ' · ' + esc(fmtDate(last.date)) : '') + '</b>Settimana ' + last.week + ', sessione ' + last.session +
       (presc ? ' · prescritto ' + esc(presc) : '') + '</div>' +
       (items ? '<ol class="lt-sets">' + items + '</ol>' : '') + notes + '</div>';
+  }
+
+  /* ---------- Feedback della coach, per famiglia di esercizi ---------- */
+  // Strappo da terra, dalla sospensione, stacchi presa strappo, overhead squat presa strappo → "Strappo"
+  function familyOf(name) {
+    var n = normName(name).replace(/frontsquat/g, "front squat").replace(/backsquat/g, "back squat");
+    if (/strappo|snatch/.test(n)) return { id: "strappo", name: "Strappo" };
+    if (/slancio|girata|clean|jerk|c\s*&\s*j|push[\s-]*press|spint[ae] di forza|split/.test(n)) return { id: "slancio", name: "Slancio" };
+    if (/squat/.test(n)) return { id: "squat", name: "Squat" };
+    if (/stacc/.test(n)) return { id: "stacchi", name: "Stacchi" };
+    return { id: "ex:" + n, name: name };
+  }
+  // Tutti i feedback della coach precedenti alla sessione che stai guardando (anche di schede vecchie),
+  // dal più recente.
+  function coachHistory(p, wi, si, e) {
+    var fam = familyOf(e.name).id, D0 = datesOf(p.id);
+    var curDate = D0[sessionKey(wi, si)] || todayStr();
+    var curWeek = p.weeks[wi].number, curSess = p.weeks[wi].sessions[si].number, out = [];
+    state.programs.forEach(function (q) {
+      if (!state.logsLoaded[q.id]) return;
+      var L = logsOf(q.id), D = datesOf(q.id), same = q.id === p.id;
+      q.weeks.forEach(function (w, wj) {
+        w.sessions.forEach(function (sx, sj) {
+          if (same && wj === wi && sj === si) return;
+          var d = D[sessionKey(wj, sj)] || "";
+          var before = d ? d <= curDate : same ? (w.number < curWeek || (w.number === curWeek && sx.number < curSess)) : (q.importedAt || "") < (p.importedAt || "");
+          if (!before) return;
+          sx.exercises.forEach(function (o, ej) {
+            var en = L[entryKey(wj, sj, ej)], t = en && (en.coach || "").trim();
+            if (!t || familyOf(o.name).id !== fam) return;
+            out.push({ text: t, date: d, name: o.name, rank: [d, same ? 1 : 0, w.number, sx.number, ej] });
+          });
+        });
+      });
+    });
+    out.sort(function (a, b) { for (var i = 0; i < 5; i++) { if (a.rank[i] > b.rank[i]) return -1; if (a.rank[i] < b.rank[i]) return 1; } return 0; });
+    return out;
+  }
+  function historyHash(items) {
+    var str = items.map(function (x) { return x.date + "|" + x.name + "|" + x.text; }).join("\n"), h = 0;
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return items.length + ":" + h;
+  }
+  function coachSummary(fam) { var m = state.maxes.coachAI; return m && m[fam] ? m[fam] : null; }
+  function coachBoxHtml(p, wi, si, e) {
+    var items = coachHistory(p, wi, si, e);
+    if (!items.length) return "";
+    var fam = familyOf(e.name), sum = coachSummary(fam.id), fresh = sum && sum.hash === historyHash(items);
+    var open = !!state.coachOpen[fam.id];
+    var h = '<div class="coach-box" data-fam="' + esc(fam.id) + '"><div class="cb-head"><b>Dalla coach' + (fam.id.indexOf("ex:") ? ' · ' + esc(fam.name) : '') + '</b>' +
+      '<span>' + items.length + (items.length === 1 ? ' feedback' : ' feedback') + '</span></div>';
+    if (sum) {
+      h += '<div class="cb-ai"><div class="cb-ai-text">' + esc(sum.text) + '</div>' +
+        '<div class="cb-ai-meta">Riassunto con l\'AI' + (fresh ? '' : ' · ci sono feedback nuovi') + '</div></div>';
+    }
+    var shown = open || !sum ? items : [];
+    if (!open && !sum) shown = items.slice(0, 2);
+    if (shown.length) h += '<ul class="cb-list">' + shown.map(function (x) {
+      return '<li><small>' + esc((x.date ? fmtDate(x.date) + " · " : "") + x.name) + '</small>' + esc(x.text) + '</li>';
+    }).join("") + '</ul>';
+    var acts = [];
+    if (state.aiAvailable && !(sum && fresh)) acts.push('<button class="link-btn" data-action="coach-ai">' + (sum ? 'Aggiorna il riassunto' : 'Riassumi con l\'AI') + '</button>');
+    if (items.length > (sum ? 0 : 2)) acts.push('<button class="link-btn" data-action="coach-toggle">' + (open ? 'Nascondi' : sum ? 'Vedi i feedback (' + items.length + ')' : 'Vedi tutti (' + items.length + ')') + '</button>');
+    if (acts.length) h += '<div class="cb-actions">' + acts.join("") + '</div>';
+    h += '<p class="cb-status" role="status"></p>';
+    return h + '</div>';
+  }
+  // Riassunto con Claude: 3-5 indicazioni brevi, salvato e riusato finché non arrivano feedback nuovi
+  var aiBusy = false;
+  function summarizeCoach(btn) {
+    var section = btn.closest(".log"), c = sectionContext(section); if (!c || aiBusy) return;
+    var items = coachHistory(c.p, c.wi, c.si, c.e), fam = familyOf(c.e.name), box = btn.closest(".coach-box");
+    var status = box && box.querySelector(".cb-status");
+    if (!items.length) return;
+    aiBusy = true; btn.disabled = true; if (status) status.textContent = "Sto riassumendo…";
+    var prompt = "Sei l'assistente di un'atleta di pesistica olimpica. Qui sotto ci sono i feedback che la sua coach le ha dato " +
+      "guardando i video di esercizi della famiglia \"" + fam.name + "\", dal più recente. Riassumili in 3-5 indicazioni tecniche brevi " +
+      "(massimo 12 parole ciascuna), in italiano, rivolte a lei con il tu, da leggere prima di fare l'esercizio. Metti prima le correzioni " +
+      "più recenti e quelle ripetute più volte. Non inventare nulla che non sia nei feedback. Rispondi solo con l'elenco, una indicazione per riga, " +
+      "ogni riga che inizia con \"• \".\n\nFeedback:\n" +
+      items.slice(0, 40).map(function (x) { return "- " + (x.date || "senza data") + " · " + x.name + ": " + x.text.slice(0, 600); }).join("\n");
+    window.claude.use("sample").then(function (sample) {
+      if (!sample) throw { code: "not_granted" };
+      return sample(prompt, { modelTier: "quick" });
+    }).then(function (r) {
+      var text = String(r.text || "").trim();
+      state.maxes.coachAI = state.maxes.coachAI || {};
+      state.maxes.coachAI[fam.id] = { text: text, hash: historyHash(items), at: new Date().toISOString() };
+      saveMaxesSoon();
+      aiBusy = false; rerenderLog(section);
+    }).catch(function (err) {
+      aiBusy = false; btn.disabled = false;
+      var code = err && err.code;
+      if (code === "not_granted" || code === "sampling_disabled" || code === "not_declared" || code === "capability_disabled" || code === "capability_removed") {
+        state.aiAvailable = false; rerenderLog(section); return;
+      }
+      if (status) status.textContent = code === "rate_limited" ? "Troppe richieste in questo momento: riprova tra un po'." : code === "cancelled" ? "" : "Il riassunto non è riuscito, riprova.";
+    });
   }
 
   /* ---------- Massimali e peso suggerito ---------- */
@@ -1135,6 +1347,7 @@ var SchedaParser = (function () {
     var total = prescribedSets(e), done = doneCount(en), missed = missedCount(en);
     var h = '<section ' + attrs + ' aria-label="Il tuo allenamento">';
     h += '<div class="log-head"><h3>Il tuo allenamento</h3><span class="log-count' + (done >= total ? " complete" : "") + '">' + done + '/' + total + ' serie' + (missed ? ' <span class="miss-count">· ' + missed + (missed === 1 ? ' sbagliata' : ' sbagliate') + '</span>' : '') + '</span></div>';
+    h += coachBoxHtml(p, wi, si, e);
     if (last) {
       h += lastTimeHtml(last);
     }
@@ -1154,8 +1367,8 @@ var SchedaParser = (function () {
         '</div>';
     }
     h += '<button class="link-btn add-set" data-action="add-set">' + ICON.plus + 'Aggiungi serie</button>';
-    h += '<div class="text-field"><label for="log-' + key + '-feedback">Feedback</label><textarea id="log-' + key + '-feedback" data-log-field="feedback" rows="2" placeholder="Come è andata, sensazioni, tecnica">' + esc(en ? en.feedback : e.feedback) + '</textarea></div>';
-    h += '<div class="text-field"><label for="log-' + key + '-note">Note</label><textarea id="log-' + key + '-note" data-log-field="note" rows="2" placeholder="Altro da segnare">' + esc(en ? en.note : e.note) + '</textarea></div>';
+    h += '<div class="text-field"><label for="log-' + key + '-feedback">Feedback</label><textarea class="auto" id="log-' + key + '-feedback" data-log-field="feedback" rows="2" placeholder="Come è andata, sensazioni, tecnica">' + esc(en ? en.feedback : e.feedback) + '</textarea></div>';
+    h += '<div class="text-field coach-field"><label for="log-' + key + '-coach">Feedback della coach</label><textarea class="auto" id="log-' + key + '-coach" data-log-field="coach" rows="2" placeholder="Cosa ti ha detto sui video">' + esc(en ? en.coach || "" : "") + '</textarea></div>';
     h += '<div class="notes-preview" aria-live="polite">' + previewHtml(e, en) + '</div>';
     return h + '</section>';
   }
@@ -1170,8 +1383,9 @@ var SchedaParser = (function () {
   function rerenderLog(section, focusSelector) {
     var c = sectionContext(section); if (!c) return;
     section.outerHTML = logBlock(c.p, c.wi, c.si, c.ei);
+    var fresh = app.querySelector('.log[data-w="' + c.wi + '"][data-s="' + c.si + '"][data-e="' + c.ei + '"]');
+    if (fresh) autosizeAll(fresh);
     if (focusSelector) {
-      var fresh = app.querySelector('.log[data-w="' + c.wi + '"][data-s="' + c.si + '"][data-e="' + c.ei + '"]');
       var el = fresh && fresh.querySelector(focusSelector);
       if (el) el.focus({ preventScroll: true });
     }
@@ -1218,6 +1432,14 @@ var SchedaParser = (function () {
     }
     store.getLogs(pid).then(function (r) {
       state.logs[pid] = (r && r.entries) || {};
+      // Le note scritte a mano finiscono nel Feedback (le Note ora sono automatiche)
+      Object.keys(state.logs[pid]).forEach(function (k) {
+        var en = state.logs[pid][k], n = en && (en.note || "").trim();
+        if (!n) { if (en) delete en.note; return; }
+        var fb = (en.feedback || "").trim();
+        en.feedback = fb && fb.indexOf(n) < 0 ? fb + "\n" + n : fb || n;
+        delete en.note;
+      });
       state.sessionDates[pid] = (r && r.sessions) || {};
       done();
     }).catch(function () {
@@ -1378,9 +1600,12 @@ var SchedaParser = (function () {
         '</div>' + (allDone ? ICON.checkCircle : ICON.chev) + '</button>';
     });
     h += '</div></div>';
-    h += '<div class="card export-card"><div><div class="row-title">PDF per il coach</div>' +
-      '<div class="row-sub">La tabella della scheda con Feedback e Note compilati: pesi, rep, serie riuscite (✓) e sbagliate (✗) e le tue note.</div></div>' +
-      '<div class="actions"><button class="btn btn-primary" data-action="export-week">' + ICON.download + 'Esporta settimana ' + w.number + '</button>' +
+    var xl = state.exportFormat === "xlsx";
+    h += '<div class="card export-card"><div><div class="row-title">Esporta per il coach</div>' +
+      '<div class="row-sub">La tabella della scheda con Feedback e Note compilati: pesi, rep, serie riuscite (✓) e sbagliate (✗) e le tue note. ' +
+      (xl ? 'In Excel ogni settimana è un foglio, con celle che puoi modificare dal PC.' : 'Il PDF è pronto da mandare così com\'è.') + '</div></div>' +
+      '<div class="segmented export-format" role="group" aria-label="Formato"><button data-action="export-format" data-fmt="pdf" aria-pressed="' + !xl + '">PDF</button><button data-action="export-format" data-fmt="xlsx" aria-pressed="' + xl + '">Excel</button></div>' +
+      '<div class="actions"><button class="btn btn-primary" data-action="export-week">' + ICON.download + (xl ? 'Excel' : 'PDF') + ' settimana ' + w.number + '</button>' +
       (weeks.length > 1 ? '<button class="btn btn-ghost btn-small" data-action="export-all">Tutta la scheda</button>' : '') + '</div>' +
       (state.exportStatus ? '<p class="export-status ' + state.exportStatus.kind + '" id="export-status" role="status">' + esc(state.exportStatus.text) + '</p>' : '<p class="export-status" id="export-status" role="status"></p>') +
       '</div>';
@@ -1620,49 +1845,86 @@ var SchedaParser = (function () {
   }
   function safeName(t) { return String(t || "Scheda").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "Scheda"; }
 
+  // ExcelJS si carica solo la prima volta che esporti in Excel
+  var EXCELJS_URL = "vendor/exceljs.min.js";
+  var excelPromise = null;
+  function loadExcelJS() {
+    if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+    if (!excelPromise) excelPromise = new Promise(function (resolve, reject) {
+      var sc = document.createElement("script");
+      sc.src = EXCELJS_URL;
+      sc.onload = function () { window.ExcelJS ? resolve(window.ExcelJS) : reject(new Error("libreria Excel non valida")); };
+      sc.onerror = function () { excelPromise = null; reject(new Error("non riesco a caricare il generatore di Excel, controlla la connessione")); };
+      document.head.appendChild(sc);
+    });
+    return excelPromise;
+  }
+  function exportOptions(p) {
+    var D = datesOf(p.id);
+    return {
+      program: p, title: p.title,
+      subtitle: p.title + " · esportata il " + new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }),
+      dateFor: function (wi, si) { var d = D[sessionKey(wi, si)]; return d ? fmtDate(d, true) + (parseDate(d).getFullYear() === new Date().getFullYear() ? " " + parseDate(d).getFullYear() : "") : ""; },
+      feedbackFor: function (wi, si, ei, e) { var en = getEntry(p.id, entryKey(wi, si, ei), e, false); return en ? en.feedback : e.feedback; },
+      noteFor: function (wi, si, ei, e) { return notesText(e, getEntry(p.id, entryKey(wi, si, ei), e, false)); },
+      coachFor: function (wi, si, ei, e) { var en = getEntry(p.id, entryKey(wi, si, ei), e, false); return en ? en.coach || "" : ""; }
+    };
+  }
+  function exportFile(all) { if (state.exportFormat === "xlsx") exportXlsx(all); else exportPdf(all); }
+  function exportXlsx(all) {
+    var p = currentProgram(); if (!p) return;
+    if (!state.logsLoaded[p.id]) { setExportStatus("Sto ancora caricando il tuo registro, riprova tra un attimo.", "error"); return; }
+    flushAll();
+    var sorted = sortedWeeks(p), weekNo = sorted[state.week].number;
+    var weeks = (all ? sorted : [sorted[state.week]]).map(function (w) { return p.weeks.indexOf(w); });
+    var name = safeName(p.title) + (all ? "" : " - Settimana " + weekNo) + ".xlsx";
+    setExportStatus("Preparo l'Excel…");
+    loadExcelJS().then(function (ExcelJS) {
+      var o = exportOptions(p); o.weeks = weeks;
+      return SchedaXlsx.build(ExcelJS, o).xlsx.writeBuffer();
+    }).then(function (buf) {
+      var blob = new Blob([buf], { type: XLSX_TYPE });
+      deliver(blob, name, "Excel");
+    }).catch(function (err) {
+      setExportStatus("Non sono riuscita a creare l'Excel: " + ((err && err.message) || "errore sconosciuto") + ".", "error");
+    });
+  }
+  // Salvataggio: dentro Claude con la richiesta di download, fuori con il browser
+  function deliver(blob, name, what) {
+    setExportStatus(what + " pronto, conferma il salvataggio…");
+    getDownloads().then(function (dl) {
+      if (!dl) return fallbackDownload(blob, name, what);
+      return dl.save({ filename: name, data: blob }).then(function (r) {
+        setExportStatus(r && r.status === "delivered" ? what + " inviato." : what + " salvato: " + name, "ok");
+      }).catch(function (err) {
+        var code = err && err.code;
+        if (code === "declined") setExportStatus("Salvataggio annullato.");
+        else if (code === "rate_limited") setExportStatus("C'è già una richiesta di salvataggio aperta: completala e riprova.", "error");
+        else if (code === "unavailable" || code === "not_granted" || code === "capability_disabled" || code === "capability_removed") fallbackDownload(blob, name, what);
+        else setExportStatus("Non sono riuscita a salvare il file" + (err && err.message ? " (" + err.message + ")" : "") + ".", "error");
+      });
+    });
+  }
+  var XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
   function exportPdf(all) {
     var p = currentProgram(); if (!p) return;
     if (!window.jspdf || !window.jspdf.jsPDF) { setExportStatus("Il generatore di PDF non si è caricato. Controlla la connessione e riapri la pagina.", "error"); return; }
     if (!state.logsLoaded[p.id]) { setExportStatus("Sto ancora caricando il tuo registro, riprova tra un attimo.", "error"); return; }
     flushAll();
     var sorted = sortedWeeks(p);
-    var weeks = (all ? sorted : [sorted[state.week]]).map(function (w) { return p.weeks.indexOf(w); });
-    var D = datesOf(p.id);
-    var doc;
-    try {
-      doc = SchedaExport.build(window.jspdf.jsPDF, SCHEDA_FONTS, {
-        program: p, weeks: weeks, title: p.title,
-        subtitle: p.title + " · esportata il " + new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" }),
-        dateFor: function (wi, si) { var d = D[sessionKey(wi, si)]; return d ? fmtDate(d, true) + (parseDate(d).getFullYear() === new Date().getFullYear() ? " " + parseDate(d).getFullYear() : "") : ""; },
-        feedbackFor: function (wi, si, ei, e) { var en = getEntry(p.id, entryKey(wi, si, ei), e, false); return en ? en.feedback : e.feedback; },
-        noteFor: function (wi, si, ei, e) { return notesText(e, getEntry(p.id, entryKey(wi, si, ei), e, false)); }
-      });
-    } catch (err) {
-      setExportStatus("Non sono riuscita a creare il PDF: " + ((err && err.message) || "errore sconosciuto") + ".", "error");
-      return;
-    }
-    var blob = doc.output("blob");
-    var name = safeName(p.title) + (all ? "" : " - Settimana " + sorted[state.week].number) + ".pdf";
-    setExportStatus("PDF pronto, conferma il salvataggio…");
-    getDownloads().then(function (dl) {
-      if (!dl) return fallbackDownload(blob, name);
-      return dl.save({ filename: name, data: blob }).then(function (r) {
-        setExportStatus(r && r.status === "delivered" ? "PDF inviato." : "PDF salvato: " + name, "ok");
-      }).catch(function (err) {
-        var code = err && err.code;
-        if (code === "declined") setExportStatus("Salvataggio annullato.");
-        else if (code === "rate_limited") setExportStatus("C'è già una richiesta di salvataggio aperta: completala e riprova.", "error");
-        else if (code === "unavailable" || code === "not_granted" || code === "capability_disabled" || code === "capability_removed") fallbackDownload(blob, name);
-        else setExportStatus("Non sono riuscita a salvare il PDF" + (err && err.message ? " (" + err.message + ")" : "") + ".", "error");
-      });
-    });
+    var o = exportOptions(p), doc;
+    o.weeks = (all ? sorted : [sorted[state.week]]).map(function (w) { return p.weeks.indexOf(w); });
+    try { doc = SchedaExport.build(window.jspdf.jsPDF, SCHEDA_FONTS, o); }
+    catch (err) { setExportStatus("Non sono riuscita a creare il PDF: " + ((err && err.message) || "errore sconosciuto") + ".", "error"); return; }
+    deliver(doc.output("blob"), safeName(p.title) + (all ? "" : " - Settimana " + sorted[state.week].number) + ".pdf", "PDF");
   }
 
   // Fuori da Claude (pagina aperta da sola) uso il download normale del browser.
   function saveBlob(blob, name, report) {
     // Sul telefono apro il menu Condividi (Salva su File, WhatsApp, Mail…): su iPhone è più affidabile del download.
     try {
-      var type = /\.pdf$/i.test(name) ? "application/pdf" : "application/json";
+      var type = /\.pdf$/i.test(name) ? "application/pdf" : /\.xlsx$/i.test(name) ? XLSX_TYPE : "application/json";
       var f = typeof File === "function" ? new File([blob], name, { type: type }) : null;
       var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
       if (f && coarse && navigator.canShare && navigator.canShare({ files: [f] })) {
@@ -1683,8 +1945,8 @@ var SchedaParser = (function () {
       report("Questo browser non permette di scaricare il file da qui.", "error");
     }
   }
-  function fallbackDownload(blob, name) {
-    saveBlob(blob, name, function (text, kind) { setExportStatus(text.indexOf("Scaricato") === 0 ? "PDF scaricato: " + name : text, kind); });
+  function fallbackDownload(blob, name, what) {
+    saveBlob(blob, name, function (text, kind) { setExportStatus(text.indexOf("Scaricato") === 0 ? (what || "File") + " scaricato: " + name : text, kind); });
   }
 
 
@@ -1775,11 +2037,20 @@ var SchedaParser = (function () {
   }
 
   /* ---------- Render ---------- */
+  // Le caselle di testo crescono con quello che scrivi
+  function autosize(t) {
+    if (!t || !t.isConnected) return;
+    t.style.height = "auto";
+    t.style.height = (t.scrollHeight + 2) + "px";
+  }
+  function autosizeAll(root) { (root || app).querySelectorAll("textarea.auto").forEach(autosize); }
+  window.addEventListener("resize", function () { autosizeAll(); });
   function render() {
     var views = { home: viewHome, review: viewReview, program: viewProgram, session: viewSession, exercise: viewExercise, calendar: viewCalendar, maxes: viewMaxes };
     app.innerHTML = (views[state.view] || viewHome)();
     document.body.classList.toggle("pager-mode", state.view === "exercise");
     if (state.view === "exercise") setupPager();
+    autosizeAll();
   }
 
   // Distanza tra l'inizio di una scheda esercizio e la successiva (larghezza + gap).
@@ -1918,12 +2189,21 @@ var SchedaParser = (function () {
         var tcs = currentSession(), tex = tcs && tcs.session.exercises[Number(el.dataset.i)];
         if (tex) restTimer.open(restSeconds(tex.rest) || 90, tex.name);
         break;
-      case "export-week": exportPdf(false); break;
+      case "export-week": exportFile(false); break;
+      case "export-format":
+        state.exportFormat = el.dataset.fmt === "xlsx" ? "xlsx" : "pdf"; state.exportStatus = null;
+        try { localStorage.setItem(LOCAL_KEY + ".exportFormat", state.exportFormat); } catch (e) {}
+        render(); break;
       case "backup-export": exportBackup(); break;
       case "backup-import": state.backupStatus = null; backupInput.click(); break;
       case "backup-cancel": state.backupPending = null; render(); break;
       case "backup-restore": restoreBackup(); break;
-      case "export-all": exportPdf(true); break;
+      case "export-all": exportFile(true); break;
+      case "coach-ai": summarizeCoach(el); break;
+      case "coach-toggle":
+        var fb = el.closest(".coach-box"); if (!fb) break;
+        state.coachOpen[fb.dataset.fam] = !state.coachOpen[fb.dataset.fam];
+        rerenderLog(el.closest(".log")); break;
       case "open-calendar":
         state.calFrom = state.view === "program" ? "program" : "home";
         state.programs.forEach(function (p) { loadLogs(p.id); });
@@ -2005,8 +2285,8 @@ var SchedaParser = (function () {
       var section = t.closest(".log"), c = sectionContext(section);
       if (!c || !state.logsLoaded[c.p.id]) return;
       var en = getEntry(c.p.id, c.key, c.e, true), f = t.dataset.logField;
-      if (f === "feedback" || f === "note") {
-        en[f] = t.value;
+      if (f === "feedback" || f === "coach") {
+        en[f] = t.value; autosize(t);
       } else {
         var row = t.closest(".set-row"), i = Number(row.dataset.set);
         var v = t.value.trim();
@@ -2305,6 +2585,13 @@ var SchedaParser = (function () {
     }).catch(function () {}).then(function () { return store.list(); });
   }).then(function (list) {
     state.programs = list; state.loading = false; render();
+    // Registri di tutte le schede: servono per i feedback della coach di schede precedenti
+    list.forEach(function (p) { loadLogs(p.id); });
+    var cc = window.claude;
+    if (cc && typeof cc.use === "function") cc.use("sample").then(function (sm) {
+      state.aiAvailable = !!sm;
+      if (sm && state.view === "exercise") app.querySelectorAll(".log").forEach(function (sec) { if (sec.querySelector(".coach-box")) rerenderLog(sec); });
+    }).catch(function () {});
   }).catch(function () {
     state.loading = false; render();
   });

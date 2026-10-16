@@ -1,7 +1,7 @@
-/* Service worker di Scheda Pesistica — versione d90ce1a462
+/* Service worker di Scheda Pesistica — versione 7cc0e09ad1
    - pagina: prima la rete (così gli aggiornamenti arrivano subito), poi la copia salvata se sei offline;
    - librerie, font e icone: dalla copia salvata. */
-const CACHE = "scheda-d90ce1a462";
+const CACHE = "scheda-7cc0e09ad1";
 const FILES = [
   "./",
   "fonts/barlow-condensed-latin-600-normal.woff2",
@@ -17,6 +17,7 @@ const FILES = [
   "icons/icon-512.png",
   "icons/icon-maskable-512.png",
   "manifest.webmanifest",
+  "vendor/exceljs.min.js",
   "vendor/jspdf.umd.min.js",
   "vendor/pdf.min.js",
   "vendor/pdf.worker.min.js",
